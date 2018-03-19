@@ -1,0 +1,4 @@
+*.pyc
+*.lammpstrj.gz
+*.gz
+*.so
