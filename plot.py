@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, shutil, sys, numpy as np, cPickle as pickle, shelve
+import utils, vis
 
 #### PREDICTED STRUCTURES PANEL ####
 def PlotPanel(DataDir, NativeDir = None, Prefix = None):
@@ -8,8 +9,8 @@ def PlotPanel(DataDir, NativeDir = None, Prefix = None):
     print '---------------'
     import matplotlib ; matplotlib.use('Agg')
     import vis
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     NativePdbs = []
@@ -45,8 +46,8 @@ def PlotRamaProb(DataDir, Prefix = None):
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.cm as cm
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     fig = plt.figure(figsize = (5*layout['NCols'], 4*layout['NRows']), facecolor = 'w', edgecolor = 'w')
@@ -81,14 +82,14 @@ def PlotRamaProb(DataDir, Prefix = None):
         # plot
         im = ax.imshow(np.transpose(RamaPmf), origin = 'lower', aspect = 'auto', interpolation = 'gaussian', cmap = cm.Blues,
                        extent = [PhiCenters.min(), PhiCenters.max(), PsiCenters.min(), PsiCenters.max()])
-                       ax.scatter(PhiNative, PsiNative, s = 100, c = 'red', marker = 'o', edgecolor = 'k', lw = 4)
-                       ax.axhline(0., color = 'black', lw = 2)
-                           ax.axvline(0., color = 'black', lw = 2)
-                       if Prefix is None: Prefix = 'ramaprob'
-figname = os.path.join(OutDir, Prefix+'.png')
-fig.tight_layout()
-plt.savefig(figname, bbox_inches='tight')
-return
+        ax.scatter(PhiNative, PsiNative, s = 100, c = 'red', marker = 'o', edgecolor = 'k', lw = 4)
+        ax.axhline(0., color = 'black', lw = 2)
+        ax.axvline(0., color = 'black', lw = 2)
+    if Prefix is None: Prefix = 'ramaprob'
+    figname = os.path.join(OutDir, Prefix+'.png')
+    fig.tight_layout()
+    plt.savefig(figname, bbox_inches='tight')
+    return
 
 
 #### RAMA ERRORS PANEL ####
@@ -97,8 +98,8 @@ def PlotPhiPsiErr(DataDir, Prefix = None):
     print '----------------------------'
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     fig = plt.figure(figsize = (5*layout['NCols'], 4*layout['NRows']), facecolor = 'w', edgecolor = 'w')
@@ -141,8 +142,8 @@ def PlotContactMap(DataDir, Prefix = None):
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.cm as cmap
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     fig = plt.figure(figsize = (5*layout['NCols'], 4*layout['NRows']), facecolor = 'w', edgecolor = 'w')
@@ -194,8 +195,8 @@ def PlotFracNativeContact(DataDir, Prefix = None):
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.cm as cmap
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     fig = plt.figure(figsize = (5*layout['NCols'], 5*layout['NRows']), facecolor = 'w', edgecolor = 'w')
@@ -230,8 +231,8 @@ def PlotContactOrder(DataDir, Prefix = None):
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.cm as cmap
-    pset_type = sys.argv[2]
-    OutDir = os.path.abspath(sys.argv[3])
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
     layout = utils.getPanelLayout(pset_type)
     pset = layout['pset']
     fig = plt.figure(figsize = (5*layout['NCols'], 4*layout['NRows']), facecolor = 'w', edgecolor = 'w')
@@ -264,6 +265,10 @@ def PlotContactOrder(DataDir, Prefix = None):
 ######## MAIN ########
 HELPSTR = '''USAGE: python ~/Go/plot.py pset_type OutDir'''
 if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print HELPSTR
+        exit()
+
     PlotPanel(NativeDir = None, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native')
     PlotPanel(NativeDir = os.path.expanduser('~/Go/native_struct/ff96_igb5_glghs_topclust_mapped'), DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust')
     

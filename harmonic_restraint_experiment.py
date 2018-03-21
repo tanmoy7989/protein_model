@@ -26,13 +26,15 @@ except IOError:
 FF_File, FFMetadata = utils.parseBBFF(BBType)
 Prefix = 'prot_' + PdbName
 
-# parse forcefield parameters
+# backbone forcefield parameters
 MinBondOrd = FFMetadata['MinBondOrd']
 NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
+
 # Go parameters
-HarmonicFluct = np.sqrt(2.) # used to tune the force constant in s-s bias
-    
+HarmonicFluct = 1.0 # used to tune the force constant in s-s bias
+PolyName = FFMetadata['PolyName']
+
 # temp schedule
 TLow = 270.
 THigh = 500.
@@ -71,11 +73,13 @@ cfg = cg.config.Config()
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
-cfg.NCOSType = 0
+cfg.NCOSType = 2 # constant excluded vol potential between backbone and sidechain
 
 # native contacts
 cfg.NativeType = 2
 cfg.HarmonicFluct = %(HARMONICFLUCT)g
+cfg.Map2Polymer = True
+cfg.PolyName = "%(POLYNAME)s"
 
 # dont apply potential between nonnative contacts
 cfg.NonNativeType = -1
@@ -93,7 +97,7 @@ p, Sys = cg.cgmodel.makeGoSys(NativePdb = "%(NATIVEPDB)s", cfg = cfg, Prefix = P
 cg.cgmodel.loadParam(Sys, "%(FF_FILE)s")
 
 # compile REMD object
-md = cg.mdsim.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
+md = cg.md.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
                    NStepsMin = %(NSTEPSMIN)d, NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
                    NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
 
@@ -126,32 +130,34 @@ date
 python remd.py
 mkdir -p ./NativeAnalysis
 mkdir -p ./AATopClustAnalysis
-python ~/Go/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis
-python ~/Go/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis
+python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis
+python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis
 date
 '''
 # dict for filling md script template
 d1 = {
-      'PREFIX': Prefix,
-      'NATIVEPDB': NativePdb,
+      'PREFIX'          : Prefix,
+      'NATIVEPDB'       : NativePdb,
         
-      'FF_FILE': FF_File,
-      'MINBONDORD': MinBondOrd,
-      'NKNOT' : NKnot,
-      'SPCUT' : SPCut,
-      'HARMONICFLUCT': HarmonicFluct,
+      'FF_FILE'         : FF_File,
+      'MINBONDORD'      : MinBondOrd,
+      'NKNOT'           : NKnot,
+      'SPCUT'           : SPCut,
+      
+      'HARMONICFLUCT'   : HarmonicFluct,
+      'POLYNAME'        : PolyName,
+
+      'TLOW'            : TLow,
+      'THIGH'           : THigh,
+      'NREPLICA'        : NReplica,
+      'TEMPSET'         : TempSet,
         
-      'TLOW'    : TLow,
-      'THIGH'   : THigh,
-      'NREPLICA': NReplica,
-      'TEMPSET' : TempSet,
-        
-      'TIMESTEP' : TimeStep,
-      'NSTEPSMIN': NStepsMin,
-      'NSTEPSEQUIL': NStepsEquil,
-      'NSTEPSPROD' : NStepsProd,
-      'NSTEPSSWAP' : NStepsSwap,
-      'STEPFREQ': StepFreq
+      'TIMESTEP'        : TimeStep,
+      'NSTEPSMIN'       : NStepsMin,
+      'NSTEPSEQUIL'     : NStepsEquil,
+      'NSTEPSPROD'      : NStepsProd,
+      'NSTEPSSWAP'      : NStepsSwap,
+      'STEPFREQ'        : StepFreq
     }
 
 # dict for filling job script template
