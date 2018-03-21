@@ -62,8 +62,8 @@ def loadParam(Sys, FF_file):
 def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
-    p = topo.ProteinNCOS(Seq = Seq, Prefix = Prefix)
-    Sys = p.MakeSys(cfg = cfg)
+    p = topo.ProteinNCOS(Seq = Seq, cfg = cfg, Prefix = Prefix)
+    Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
     BB = bb.P_Backbone(p, Sys, cfg)
@@ -76,6 +76,7 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     # nonbonded potentials
     if cfg.NCOSType == 0: ff.extend(BB_S.BB_S_0())
     if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials (1-alphabet)
     SS = ss.P_Sidechain(p, Sys, cfg)
     ff.extend(SS.SS_1())
@@ -84,14 +85,15 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     # set up other system properties
     PrepSys(Sys, TempSet = TempSet)
     # compile
+    if Verbose: print 'Compiling model...'
     Sys.Load()
     return p, Sys
 
 def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
-    p = topo.ProteinNCOS(Pdb = NativePdb, Prefix = Prefix)
-    Sys = p.MakeSys(cfg = cfg)
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
     BB = bb.P_Backbone(p, Sys, cfg)
@@ -102,11 +104,16 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     cfg.Bonded_NCOSType = 1
     ff.extend(BB_S.BB_S_Bonded_1())
     # nonbonded potentials
-    cfg.NCOSType = 1
-    ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 0: ff.extend(BB_S.BB_S_0())
+    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials
     # parse native struct
     ContactDict = ps.ParsePdb(p)
+    # map to polymer
+    if cfg.Map2Polymer:
+        MappedContactDict = ps.Map2Polymer(p = p, PolyName = cfg.PolyName, ContactDict = ContactDict)
+        ContactDict = MappedContactDict
     SS = ss.P_Sidechain(p, Sys, cfg)
     # native contacts
     if cfg.NativeType == 0: ff.extend(SS.Go_native_0(ContactDict))
@@ -120,6 +127,7 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     # set up other system properties
     PrepSys(Sys, TempSet = TempSet)
     # compile
+    if Verbose: print 'Compiling model...'
     Sys.Load()
     return p, Sys
 
