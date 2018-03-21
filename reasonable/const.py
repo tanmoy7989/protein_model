@@ -43,18 +43,20 @@ ResMass = {'ALA' :  71.079,
            'VAL' :  99.130
 }
 
-# sim-style atom objects
+# sim-style atom objects for backbone atoms
 # ignoring hydrogens and coarse graining only heavy atoms
 # special atom objects for GLY and PRO
+# Sidechains can be configurable and are shifted into the DEFAULTS dict
 AtomN = sim.chem.AtomType('N', Mass = AtomMass['N'])
 AtomC = sim.chem.AtomType('C', Mass = AtomMass['C'])
 AtomO = sim.chem.AtomType('O', Mass = AtomMass['C'] + AtomMass['O'])
 AtomC_GLY = sim.chem.AtomType('C', Mass = AtomMass['C'])
 AtomC_PRO = sim.chem.AtomType('C', Mass = AtomMass['C'])
-AtomS = {}
+AtomS_GLY = sim.chem.AtomType('S_GLY', Mass = 1.008)
+DfltAtomS = {}
 for r, mass in ResMass.iteritems():
-    if r == 'GLY': continue
-    AtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = mass)
+    if r == 'GLY': DfltAtomS[r] = None
+    else: DfltAtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = mass)
 
 # contact prediction
 ResRadius = 8.0 #A
@@ -63,8 +65,12 @@ MinCO = 3
 # LAMMPS binary
 LAMMPSEXEC = os.environ['LAMMPSEXEC']
 
-# forcefield defaults
+# model defaults
+# put anything here that you want to be dynamically configurable
 DEFAULTS = dict(
+            # sim-style sidechain objects (none for glycine by default)
+            AtomS = DfltAtomS,
+
             # backbone-sidechain options (full 21-alphabet by default)
             Bonded_NCOSType = 0,
             NCOSType = 0,
@@ -77,21 +83,25 @@ DEFAULTS = dict(
             MinBondOrd = 5,
             NKnot = 40,
             SPCut = 10.0,
-            hasSpecialBBTorsions = False,
+            hasSpecialBBGLYTorsions = False,
+            hasSpecialBBPROTorsions = False,
 
             # Go models
-            includeGLY = False, # don't include glycines when present as native contact
             NativeSigma = None,
             NativeEpsilon = 4 * kB * RoomTemp,
             NativeCut = 1.2 * ResRadius,
             NativeNKnot = 20,
+            
             HarmonicFluct = 1.0,
             NativeFConst = None,
+            Map2Polymer = False,
+            PolyName = None,
+
             NonNativeSigma = None,
             NonNativeEpsilon = 4 * kB * RoomTemp,
             NonNativeCut = None,
             NonNativeNKnot = 20,
-
+        
             # timestep
             TimeStep = 1.0, #fs
                 
@@ -108,6 +118,10 @@ FMT = {'TRAJ'  : '%s.%3.2f.lammpstrj.gz',
        'PDB'   : '%s.%3.2f.pdb',
        'ENE'   : '%s.%3.2f.ene.dat.gz'
 }
+
+# native struct locations
+NATIVEPATH = {'Unmapped'  : os.path.expanduser('~/protein_model/native_struct/unmapped'),
+              'Mapped'    : os.path.expanduser('~/protein_model/native_struct/mapped')} 
 
 # mapping script
 MAPSCRIPT = os.path.expanduser('~/protein_model/reasonable/map.py')

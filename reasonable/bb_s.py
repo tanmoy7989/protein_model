@@ -20,23 +20,25 @@ class P_Backbone_Sidechain(object):
         # extract cg protein and Sys objects
         self.p = p
         self.Sys = Sys
+        # unpack sidechain atoms
+        self.AtomS = p.AtomS
 
     def BB_S_Bonded_0(self):
         '''21 alphabet bonded backbone-sidechain potentials'''
         # create bonded potentials
         if Verbose: print 'Generating 21-alphabet bonded backbone-sidechain potentials. For splines, MinBondOrd = %d, %d knots, Cutoff = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        Filter_CS = dict( (r, sim.atomselect.PolyFilter([AtomC, AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not r == 'GLY')
-        Bond_CS = dict( (r, sim.potential.Bond(self.Sys, Filter = Filter_CS[r], Label = 'BondCS_%s' % r, Dist0 = 4.0, FConst = 1.0)) for r in self.p.ResTypes if not r == 'GLY')
+        Filter_CS = dict( (r, sim.atomselect.PolyFilter([AtomC, self.AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Bond_CS = dict( (r, sim.potential.Bond(self.Sys, Filter = Filter_CS[r], Label = 'BondCS_%s' % r, Dist0 = 4.0, FConst = 1.0)) for r in self.p.ResTypes if not self.AtomS[r] is None)
         # create angle potentials
-        Filter_NCS = dict( (r, sim.atomselect.PolyFilter([AtomN, AtomC, AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not r == 'GLY')
-        Filter_SCO = dict( (r, sim.atomselect.PolyFilter([AtomS[r], AtomC, AtomO], Bonded = True)) for r in self.p.ResTypes if not r == 'GLY')
-        Angle_NCS = dict( (r, sim.potential.AngleSpline(self.Sys, Filter = Filter_NCS[r], Label = 'AngleNCS_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not r == 'GLY')
-        Angle_SCO = dict( (r, sim.potential.AngleSpline(self.Sys, Filter = Filter_SCO[r], Label = 'AngleSCO_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not r == 'GLY')
+        Filter_NCS = dict( (r, sim.atomselect.PolyFilter([AtomN, AtomC, self.AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Filter_SCO = dict( (r, sim.atomselect.PolyFilter([self.AtomS[r], AtomC, AtomO], Bonded = True)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Angle_NCS = dict( (r, sim.potential.AngleSpline(self.Sys, Filter = Filter_NCS[r], Label = 'AngleNCS_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Angle_SCO = dict( (r, sim.potential.AngleSpline(self.Sys, Filter = Filter_SCO[r], Label = 'AngleSCO_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not self.AtomS[r] is None)
         # create torsion potentials
-        Filter_ONCS = dict( (r, sim.atomselect.PolyFilter([AtomO, AtomN, AtomC, AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not r == 'GLY')
-        Filter_SCON = dict( (r, sim.atomselect.PolyFilter([AtomS[r], AtomC, AtomO, AtomN], Bonded = True)) for r in self.p.ResTypes if not r == 'GLY')
-        Torsion_ONCS = dict( (r, sim.potential.TorsionSpline(self.Sys, Filter = Filter_ONCS[r], Label = 'TorsionONCS_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not r == 'GLY')
-        Torsion_SCON = dict( (r, sim.potential.TorsionSpline(self.Sys, Filter = Filter_SCON[r], Label = 'TorsionSCON_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not r == 'GLY')
+        Filter_ONCS = dict( (r, sim.atomselect.PolyFilter([AtomO, AtomN, AtomC, self.AtomS[r]], Bonded = True)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Filter_SCON = dict( (r, sim.atomselect.PolyFilter([self.AtomS[r], AtomC, AtomO, AtomN], Bonded = True)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Torsion_ONCS = dict( (r, sim.potential.TorsionSpline(self.Sys, Filter = Filter_ONCS[r], Label = 'TorsionONCS_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Torsion_SCON = dict( (r, sim.potential.TorsionSpline(self.Sys, Filter = Filter_SCON[r], Label = 'TorsionSCON_%s' % r, NKnot = self.NKnot)) for r in self.p.ResTypes if not self.AtomS[r] is None)
         # populate
         ff = Bond_CS.values() + \
             Angle_NCS.values() + Angle_SCO.values() + \
@@ -46,7 +48,7 @@ class P_Backbone_Sidechain(object):
     def BB_S_Bonded_1(self):
         '''1-alphabet bonded backbone-sidechain potentials'''
         if Verbose: print 'Generating 1-alphabet bonded backbone-sidechain potentials. For splines, MinBondOrd = %d, %d knots, Cutoff = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        FilterS = sim.atomselect.Filter([AtomS[r] for r in self.p.ResTypes if not r == 'GLY'])
+        FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
         # create bonded potentials
         Filter_CS = sim.atomselect.PolyFilter([AtomC, FilterS], Bonded = True)
         Bond_CS = sim.potential.Bond(self.Sys, Filter = Filter_CS, Label = 'BondCS', Dist0 = 4.0, FConst = 1.0)
@@ -69,12 +71,12 @@ class P_Backbone_Sidechain(object):
     def BB_S_0(self):
         '''21 alphabet nonbonded backbone-sidechain potentials'''
         if Verbose: print 'Generating 21-alphabet backbone-sidechain nonbonded potentials. For splines, MinBondOrd = %d, %d knots, Cutoff = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        Filter_NS_p = dict( (r, sim.atomselect.PolyFilter([AtomN, AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not r == 'GLY')
-        Filter_CS_p = dict( (r, sim.atomselect.PolyFilter([AtomC, AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not r == 'GLY')
-        Filter_OS_p = dict( (r, sim.atomselect.PolyFilter([AtomO, AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not r == 'GLY')
-        Pair_NS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_NS_p[r], Label = 'NonBondNS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not r == 'GLY')
-        Pair_CS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_CS_p[r], Label = 'NonBondCS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not r == 'GLY')
-        Pair_OS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_OS_p[r], Label = 'NonBondOS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not r == 'GLY')
+        Filter_NS_p = dict( (r, sim.atomselect.PolyFilter([AtomN, self.AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Filter_CS_p = dict( (r, sim.atomselect.PolyFilter([AtomC, self.AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Filter_OS_p = dict( (r, sim.atomselect.PolyFilter([AtomO, self.AtomS[r]], MinBondOrd = self.MinBondOrd)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Pair_NS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_NS_p[r], Label = 'NonBondNS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Pair_CS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_CS_p[r], Label = 'NonBondCS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not self.AtomS[r] is None)
+        Pair_OS = dict( (r, sim.potential.PairSpline(self.Sys, Filter = Filter_OS_p[r], Label = 'NonBondOS_%s' % r, NKnot = self.NKnot, Cut = self.SPCut)) for r in self.p.ResTypes if not self.AtomS[r] is None)
         # populate
         ff = Pair_NS.values() + Pair_CS.values() + Pair_OS.values()
         return ff
@@ -82,7 +84,7 @@ class P_Backbone_Sidechain(object):
     def BB_S_1(self):
         '''1-alphabet nonbonded backbone-sidechain potentials'''
         if Verbose: print 'Generating 1-alphabet backbone-sidechain nonbonded potentials. For splines, MinBondOrd = %d, %d knots, Cutoff = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        FilterS = sim.atomselect.Filter([AtomS[r] for r in self.p.ResTypes if not r == 'GLY'])
+        FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
         Filter_NS_p = sim.atomselect.PolyFilter([AtomN, FilterS], MinBondOrd = self.MinBondOrd)
         Filter_CS_p = sim.atomselect.PolyFilter([AtomC, FilterS], MinBondOrd = self.MinBondOrd)
         Filter_OS_p = sim.atomselect.PolyFilter([AtomO, FilterS], MinBondOrd = self.MinBondOrd)
@@ -93,9 +95,16 @@ class P_Backbone_Sidechain(object):
         ff = [Pair_NS, Pair_CS, Pair_OS]
         return ff
 
-    def BB_S_2():
-        '''1-alphabet constant low repulsive potential'''
-        pass
+    def BB_S_2(self):
+        '''1-alphabet constant low repulsive spline potential'''
+        if Verbose: print 'Generating 1-alphabet single repulsive backbone-sidechain nonbonded potential with MinBondOrd = %d, %d knots, Cutoff = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
+        FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
+        FilterBB = sim.atomselect.Filter([AtomN, AtomC, AtomO])
+        Filter_BBS = sim.atomselect.PolyFilter([FilterBB, FilterS], MinBondOrd = self.MinBondOrd)
+        Pair_BBS = sim.potential.PairSpline(self.Sys, Filter = Filter_BBS, Label = 'NonBondBBS', NKnot = self.NKnot, Cut = self.SPCut)
+        # populate
+        ff = [Pair_BBS]
+        return ff
 
 
 
