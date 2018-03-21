@@ -15,5 +15,5 @@ import cgmodel
 
 import srel
 
-import mdsim
+import md
 
