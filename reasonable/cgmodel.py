@@ -67,8 +67,8 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
     p = topo.ProteinNCOS(Seq = Seq, cfg = cfg, Prefix = Prefix)
-    # ensure that siechains are referenced according to residue number
-    cfg.SSRefType = 'number'
+    # ensure that siechains are referenced according to residue name
+    cfg.SSRefType = 'name'
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials

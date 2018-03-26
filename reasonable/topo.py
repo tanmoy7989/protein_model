@@ -70,7 +70,7 @@ class ProteinNCOS(object):
                 this_AtomSbyRes = None
                 this_AtomSbyNum = None
             else:
-                this_AtomSbyRes = None
+                this_AtomSbyRes = AtomS[r]
                 this_AtomSbyNum = copy.copy(self.cfg.AtomS[r])
                 this_AtomSbyNum.Name = 'S_%d' % i
             self.AtomSbyRes[r] = this_AtomSbyRes
@@ -194,6 +194,7 @@ def MakeSys(p, cfg = None, NMols = 1):
         print 'Generating backbone topology...'
     # generate the molecule
     AtomList = []
+    s = ' Added side chain atoms by %s: ' % cfg.SSRefType
     for i,r in enumerate(p.Seq):
         # backbone atoms
         if p.hasSpecialBBGLYTorsions:
@@ -204,15 +205,21 @@ def MakeSys(p, cfg = None, NMols = 1):
         # sidechain atoms
         # ref by name
         if cfg.SSRefType == 'name':
-            if not p.AtomSbyRes[r] is None: res.append(p.AtomSbyRes[r])
+            if not p.AtomSbyRes[r] is None:
+                res.append(p.AtomSbyRes[r])
+                s += res[-1].Name + ', '
         # ref by number
         elif cfg.SSRefType == 'number':
-            if not p.AtomSbyNum[i] is None: res.append(p.AtomSbyNum[i])
+            if not p.AtomSbyNum[i] is None:
+                res.append(p.AtomSbyNum[i])
+                s += res[-1].Name + ', '
         else:
             print 'Error: Unknown sidechain reference type, or not implemented yet'
             exit()
         # add to AtomList 
         AtomList.extend(res)
+    s += '\n'
+    if Verbose: print s
     Mol = sim.chem.MolType(p.Prefix, [i for i in AtomList])
     # generate bonds
     for (i,j) in p.BondPairs: Mol.Bond(i,j)

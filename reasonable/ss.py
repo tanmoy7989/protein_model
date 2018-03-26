@@ -25,9 +25,10 @@ class P_Sidechain(object):
         self.p = p
         self.Sys = Sys
         # unpack sidechains
-        if cfg.SSRefType == 'name':
+        self.SSRefType = cfg.SSRefType
+        if self.SSRefType == 'name':
             self.AtomS = p.AtomSbyRes
-        elif cfg.SSRefType == 'number':
+        elif self.SSRefType == 'number':
             self.AtomS = p.AtomSbyNum
         else:
             print 'Error: Unknown sidechain reference type, or not implemented yet'
@@ -57,9 +58,12 @@ class P_Sidechain(object):
 
     def SS_1(self):
         '''1 alphabet nonbonded sidechain-sidechain spline potentials
-        assumes sidechain reference by residue number'''
+        assumes sidechain reference by residue name or number'''
         if Verbose: print 'Generating 1-alphabet sidechain-sidechain nonbonded potentials. For splines, MinBondOrd = %d, %d knots, SPCut = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        FilterS = sim.atomselect.Filter([self.AtomS[i] for i in range(self.p.NRes) if not self.AtomS[i] is None])
+        if self.SSRefType == 'number':
+            FilterS = sim.atomselect.Filter([self.AtomS[i] for i in range(self.p.NRes) if not self.AtomS[i] is None])
+        elif self.SSRefType == 'name':
+            FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
         Filter_SS_p = sim.atomselect.PolyFilter([FilterS, FilterS], MinBondOrd = self.MinBondOrd)
         Pair_SS = sim.potential.PairSpline(self.Sys, Filter = Filter_SS_p, Label = 'NonBondSS', NKnot = self.NKnot, Cut = self.SPCut)
         # populate
