@@ -58,11 +58,17 @@ def loadParam(Sys, FF_file):
             P.SetParam(**(FileParamDict[P.Name]))
             hasPotentials.append(P.Name) 
     return hasPotentials
- 
+
+def CheckSys(p, Sys, cfg):
+    ''' checks the system to ensure filters have been applied correctly''' 
+    pass
+
 def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
     p = topo.ProteinNCOS(Seq = Seq, cfg = cfg, Prefix = Prefix)
+    # ensure that siechains are referenced according to residue number
+    cfg.SSRefType = 'number'
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
@@ -70,11 +76,10 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     ff.extend(BB.BB_0())
     # create backbone-sidechain potentials
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
-    # bonded potentials
-    if cfg.Bonded_NCOSType == 0: ff.extend(BB_S.BB_S_Bonded_0())
-    if cfg.Bonded_NCOSType == 1: ff.extend(BB_S.BB_S_Bonded_1())
-    # nonbonded potentials
-    if cfg.NCOSType == 0: ff.extend(BB_S.BB_S_0())
+    # 1-alphabet bonded potentials
+    cfg.Bonded_NCOSType = 1
+    ff.extend(BB_S.BB_S_Bonded_1())
+    # 1-alphabet or constant repulsive nonbonded potentials
     if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
     if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials (1-alphabet)
@@ -93,18 +98,19 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
     p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    # ensure that sidechains are referenced according to residue number
+    cfg.SSRefType = 'number'
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
     BB = bb.P_Backbone(p, Sys, cfg)
     ff.extend(BB.BB_0())
-    # create 1-alphabet backbone-sidechain potentials
+    # create backbone-sidechain potentials
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
-    # bonded potentials
+    # 1-alphabet bonded potentials
     cfg.Bonded_NCOSType = 1
     ff.extend(BB_S.BB_S_Bonded_1())
-    # nonbonded potentials
-    if cfg.NCOSType == 0: ff.extend(BB_S.BB_S_0())
+    # 1-alphabet or constant repulsive nonbonded potentials
     if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
     if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials

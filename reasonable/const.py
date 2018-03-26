@@ -40,7 +40,8 @@ ResMass = {'ALA' :  71.079,
            'THR' : 101.105, 
            'TRP' : 186.213, 
            'TYR' : 163.176, 
-           'VAL' :  99.130
+           'VAL' :  99.130,
+           'BB'  :  56.041 # this is the mass of 'NH-CH-CO'
 }
 
 # sim-style atom objects for backbone atoms
@@ -55,8 +56,11 @@ AtomC_PRO = sim.chem.AtomType('C', Mass = AtomMass['C'])
 AtomS_GLY = sim.chem.AtomType('S_GLY', Mass = 1.008)
 DfltAtomS = {}
 for r, mass in ResMass.iteritems():
+    if r == 'BB': continue
     if r == 'GLY': DfltAtomS[r] = None
-    else: DfltAtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = mass)
+    else:
+        this_mass = mass - ResMass['BB']
+        DfltAtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = this_mass)
 
 # contact prediction
 ResRadius = 8.0 #A
@@ -68,6 +72,10 @@ LAMMPSEXEC = os.environ['LAMMPSEXEC']
 # model defaults
 # put anything here that you want to be dynamically configurable
 DEFAULTS = dict(
+
+            # sidechain naming scheme
+            SSRefType = 'name',
+            
             # sim-style sidechain objects (none for glycine by default)
             AtomS = DfltAtomS,
 
@@ -127,6 +135,11 @@ NATIVEPATH = {'Unmapped'  : os.path.expanduser('~/protein_model/native_struct/un
 MAPSCRIPT = os.path.expanduser('~/protein_model/reasonable/map.py')
 HELPSTR = '''
 CG Model Types:
+SSRefType: controls whether sidechains are named according to name or number of the residue
+(number required for Go models)
+SSRefType = 'name' -> sidechains named as 'S_<resname>' # DEFAULT
+SSRefType = 'number' -> sidechains names as 'S_<number>'
+
 Bonded_NCOSType: controls backbone-sidechain bonded potentials'
 Bonded_NCOSType = -1 -> no backbone-sidechain bonded potentials (why ?!)
 Bonded_NCOSType = 0 -> 21-alphabet backbone-sidechain bonded potentials

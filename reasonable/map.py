@@ -20,18 +20,19 @@ if len(sys.argv) == 1:
 
 genBonds = 2 # 0 for no bonds, 1 for only BB bonds, 2 for all
 
-NCaps = ['ACE']
-CCaps = ['NME', 'NHE']
+NCaps = ['ACE', 'NH2']
+CCaps = ['NME', 'NHE', 'NH2']
 PDBFMT = "ATOM  %5d %4s %3s %1s%4d    %8.3f%8.3f%8.3f %5.2f%6.2f"        # (atomind + 1, atomname, resname, reschainind, resnum+1, x, y, z)
 BONDFMT = "%6s%5d%5d\n"                                                  # ('CONECT', a + r.StartAtom + 1, b + r.StartAtom + 1)
 
 # Inputs
 InPdb = os.path.abspath(sys.argv[1])
 CGPrefix = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else 'testcg'
-AATraj = os.path.abspath(sys.argv[3]) if len(sys.argv) > 3 else None
-PrmTop = os.path.abspath(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else None
-AmberEne = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else None
-LastNFrames = int(sys.argv[6]) if len(sys.argv) > 6 else 0 
+hasPseudoGLY = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+AATraj = os.path.abspath(sys.argv[4]) if len(sys.argv) > 4 else None
+PrmTop = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else None
+AmberEne = os.path.abspath(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else None
+LastNFrames = int(sys.argv[7]) if len(sys.argv) > 7 else 0 
 
 # read in protein structure 
 p = protein.ProteinClass(Pdb = InPdb)
@@ -50,10 +51,10 @@ Seq = p.Seq
 if hasNCap: Seq = Seq[1:]
 if hasCCap: Seq = Seq[:-1]
 ResCount = dict( (x,Seq.count(x)) for x in set(Seq) )
-if not 'GLY' in ResCount.keys():
-    NCGAtoms = 4 * len(Seq)
-else:
+if 'GLY' in ResCount.keys() and not hasPseudoGLY:
     NCGAtoms = 3 * ResCount['GLY'] + 4 * ( sum(ResCount.values()) - ResCount['GLY'] )
+else:
+    NCGAtoms = 4 * len(Seq)
 
 # Masks
 DecapFilter = lambda ResName, AtomName : not ( (NCaps + CCaps).__contains__(ResName) )
@@ -75,7 +76,7 @@ n = 0
 for i, r in enumerate(Seq):
     # N lines
     if not i == 0: 
-        if Seq[i-1] == 'GLY': s_bond += BONDFMT % ('CONECT', n, n+1)
+        if Seq[i-1] == 'GLY' and not hasPseudoGLY: s_bond += BONDFMT % ('CONECT', n, n+1)
         else: s_bond += BONDFMT % ('CONECT', n-1, n+1)
     N_CGInd = n ; n+= 1
     Map[N_CGInd].append(NInds[i])
@@ -98,7 +99,7 @@ for i, r in enumerate(Seq):
     s += "\n"
     
     # S lines
-    if not r == 'GLY':
+    if not r == 'GLY' or hasPseudoGLY:
         if genBonds == 2:
             s_bond += BONDFMT % ('CONECT', n-1, n+1)
         S_CGInd = n; n+= 1
@@ -121,7 +122,7 @@ if not AATraj is None:
 	simMap += [sim.atommap.AtomMap(Atoms1 = Map[i], Atom2 = i)]
     AtomNames = []
     for i, r in enumerate(Seq):
-        if r == 'GLY': AtomNames.extend(['N', 'C', 'O'])
+        if r == 'GLY' and not hasPseudoGLY: AtomNames.extend(['N', 'C', 'O'])
         else: AtomNames.extend(['N', 'C', 'O', 'S'])
     
     print 'Reading from AA Traj...'

@@ -12,7 +12,8 @@ from const import *
 Verbose = True
 
 def ParsePdb(p):
-    ''' must be supplied a cg protein object that is linked to a Pdb'''
+    ''' must be supplied a cg protein object that is linked to a Pdb
+    assumes that sidechains are referenced by residue number'''
     if Verbose: print 'Parsing native structure...'
     ResPos = p.GetResPos()
     Pos = p.Pos
@@ -39,10 +40,10 @@ def ParsePdb(p):
             res_j = p.Seq[j]
             m = SInds[i]
             n = SInds[j]
-            if p.AtomS[res_i] is None:
+            if p.AtomSbyNum[i] is None:
                 this_s = '%3d (%3s)' % (i, res_i)
                 if not s.__contains__(this_s): s += this_s + '  '
-            if p.AtomS[res_j] is None:
+            if p.AtomSbyNum[j] is None:
                 this_s = '%3d (%3s)' % (j, res_j)
                 if not s.__contains__(this_s): s += this_s + '  '
             # get com distance between residues
@@ -84,7 +85,8 @@ def ParsePdb(p):
 
 def makeMatrix(p, ContactDict, Sys):
     ''' makes a sim style matrix for native and non-native contacts
-        must be supplied a cg protein object'''
+        must be supplied a cg protein object
+        assumes sidechains are referenced by residue number'''
     NAID = Sys.World.NAID
     NativePairs = np.zeros([NAID, NAID], int)
     NonNativePairs = np.zeros([NAID, NAID], int)
@@ -101,7 +103,7 @@ def makeMatrix(p, ContactDict, Sys):
         res_i = p.Seq[i]
         res_j = p.Seq[j]
         s = ' Native contact pair: (%3d, %3d) (%3s, %3s)' % (i, j, res_i, res_j)
-        if p.AtomS[res_i] is None or p.AtomS[res_j] is None:
+        if p.AtomSbyNum[i] is None or p.AtomSbyNum[j] is None:
             ignoreThisPair = True
             s+= '  Ignored'
         if Verbose: print s
@@ -124,7 +126,7 @@ def makeMatrix(p, ContactDict, Sys):
         res_i = p.Seq[i]
         res_j = p.Seq[j]
         s = ' Non-Native contact pair: (%3d, %3d) (%3s, %3s)' % (i, j, res_i, res_j)
-        if p.AtomS[res_i] is None or p.AtomS[res_j] is None:
+        if p.AtomSbyNum[i] is None or p.AtomSbyNum[j] is None:
             ignoreThisPair = True
             s+= '  Ignored'
         if Verbose: print s
@@ -146,7 +148,7 @@ def Map2Polymer(p, PolyName, ContactDict, AAPdb = None, ReCalcContacts = False, 
     p_New = p.Map2Polymer(PolyName = PolyName, AAPdb = AAPdb, EneMin = EneMin)
     # recalculate contacts
     if ReCalcContacts:
-        ret = parsePdb(p_New)
+        ret = ParsePdb(p_New)
     else:
         ResPos_New = p_New.GetResPos()
         Pos_New = p_New.Pos

@@ -25,10 +25,17 @@ class P_Sidechain(object):
         self.p = p
         self.Sys = Sys
         # unpack sidechains
-        self.AtomS = p.AtomS
+        if cfg.SSRefType == 'name':
+            self.AtomS = p.AtomSbyRes
+        elif cfg.SSRefType == 'number':
+            self.AtomS = p.AtomSbyNum
+        else:
+            print 'Error: Unknown sidechain reference type, or not implemented yet'
+            exit()
 
     def SS_0(self):
-        '''21 alphabet nonbonded sidechain-sidechain spline potentials'''
+        '''21 alphabet nonbonded sidechain-sidechain spline potentials
+        assumes sidechain reference by residue name'''
         if Verbose: print 'Generating 21-alphabet sidechain-sidechain nonbonded potentials. For splines, MinBondOrd = %d, %d knots, SPCut = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
         Filter_SS_p = {}
         for i in range(self.p.NResTypes - 1):
@@ -49,9 +56,10 @@ class P_Sidechain(object):
         return ff
 
     def SS_1(self):
-        '''1 alphabet nonbonded sidechain-sidechain spline potentials'''
+        '''1 alphabet nonbonded sidechain-sidechain spline potentials
+        assumes sidechain reference by residue number'''
         if Verbose: print 'Generating 1-alphabet sidechain-sidechain nonbonded potentials. For splines, MinBondOrd = %d, %d knots, SPCut = %2.2f A' % (self.MinBondOrd, self.NKnot, self.SPCut)
-        FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
+        FilterS = sim.atomselect.Filter([self.AtomS[i] for i in range(self.p.NRes) if not self.AtomS[i] is None])
         Filter_SS_p = sim.atomselect.PolyFilter([FilterS, FilterS], MinBondOrd = self.MinBondOrd)
         Pair_SS = sim.potential.PairSpline(self.Sys, Filter = Filter_SS_p, Label = 'NonBondSS', NKnot = self.NKnot, Cut = self.SPCut)
         # populate
@@ -100,13 +108,13 @@ class P_Sidechain(object):
         for k, (i,j) in enumerate(ContactDict['c_native']):
             # ignore residue pairs (without sidechains) not included in Topo2AID, while making filters
             if not Topo2AID_Native.__contains__( (i,j) ): continue
-            if Verbose: print ' Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], ContactDict['d_native'][k])
+            if Verbose: print ' Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], ContactDict['d_ss_native'][k])
             m, n = Topo2AID_Native[(i,j)]
             NAID = self.Sys.World.NAID
             this_NativePair = np.zeros([NAID, NAID], int)
             this_NativePair[m,n] = 1
             this_NativePair[n,m] = 1
-            this_d0 = ContactDict['d_native'][k]
+            this_d0 = ContactDict['d_ss_native'][k]
             this_Filter = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = this_NativePair, MinBondOrd = self.MinBondOrd)
             this_P = sim.potential.Bond(self.Sys, FConst = NativeFConst, Dist0 = this_d0, Filter = this_Filter, Label = 'NonBondNative_%d_%d' % (i,j))
             P.append(this_P)

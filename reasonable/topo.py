@@ -2,7 +2,7 @@
 
 ''' Builds the toplogy of the sim-style Sys object '''
 
-import os, numpy as np
+import os, numpy as np, copy
 from const import *
 import sim
 import protein, mdsim # /share/apps/scripts/mdsim
@@ -19,10 +19,9 @@ class ProteinNCOS(object):
         sim-style AtomType objects
     '''    
     def __init__(self, cfg, Pdb = None, Seq = None, Prefix = 'ncos'):
+        if Verbose: print 'Creating the NCOS protein object...'
         # set Prefix
         self.Prefix = Prefix
-        # unpack sidechain atomtypes
-        self.AtomS = cfg.AtomS
         # has special torsion potentials
         self.hasSpecialBBGLYTorsions = cfg.hasSpecialBBGLYTorsions
         self.hasSpecialBBPROTorsions = cfg.hasSpecialBBPROTorsions
@@ -43,21 +42,46 @@ class ProteinNCOS(object):
         self.ResTypes = list(set(self.Seq))
         self.NRes = len(self.Seq)
         self.NResTypes = len(self.ResTypes)
+        # unpack sidechain atomtypes and assign to this object
+        self.AtomSbyNum = []
+        self.AtomSbyRes = {}
+        self.__SetSideChains()
+        # build startatoms for quick backbone referencing
         self.StartAtomInds = []
-        self.BondPairs = []
         self.__SetStartAtomInds()
+        # generate bonds
+        self.BondPairs = []
         self.__SetBonds()
    
     def __repr__(self):
         s = ' '.join(self.Seq)
         return s
         
+    def __SetSideChains(self):
+        ''' sets sidechain atoms for this protein object
+        to maintain compatibility with both NCOS and Go type of systems
+        i.e. both named according to residue number (as a list) 
+        and residue name (as a dict)
+        this method can be extended for other kinds of reduced alphabet schemes
+        '''
+        AtomS = self.cfg.AtomS
+        for i, r in enumerate(self.Seq):
+            if AtomS[r] is None:
+                this_AtomSbyRes = None
+                this_AtomSbyNum = None
+            else:
+                this_AtomSbyRes = None
+                this_AtomSbyNum = copy.copy(self.cfg.AtomS[r])
+                this_AtomSbyNum.Name = 'S_%d' % i
+            self.AtomSbyRes[r] = this_AtomSbyRes
+            self.AtomSbyNum.append(this_AtomSbyNum)
+        
     def __SetStartAtomInds(self):
         ''' set the index of first atoms for each residue'''
         x = 0
         for i, r in enumerate(self.Seq):
             self.StartAtomInds.append(x)
-            if self.AtomS[r] is None: x += 3
+            if self.AtomSbyNum[i] is None: x += 3
             else: x += 4
         
     def __SetBonds(self):
@@ -69,7 +93,7 @@ class ProteinNCOS(object):
             # intra-residue backbone bonds
             BondPairs = [(AtomNInd, AtomCInd), (AtomCInd, AtomOInd)]
             # backbone-sidechain bond
-            if not self.AtomS[r] is None:
+            if not self.AtomSbyNum[i] is None:
                 # sidechain bonds only for residues whose sidechains are not None
                 AtomSInd = AtomNInd + 3
                 BondPairs.append( (AtomCInd, AtomSInd) )
@@ -93,7 +117,7 @@ class ProteinNCOS(object):
             returns alpha carbon index for residues with None sidechain'''
         SInds = []
         for i, r in enumerate(self.Seq):
-            idx = 1 if self.AtomS[r] is None else 3
+            idx = 1 if self.AtomSbyNum[i] is None else 3
             SInds.append(self.StartAtomInds[i] + idx)
         return SInds
 
@@ -125,14 +149,10 @@ class ProteinNCOS(object):
         ''' maps the given Pdb to a polymer of equivalent length 
         and returns a coarse grained protein obj for the mapped polymer
         Energy minimization not yet implemented'''
-        if Verbose: print 'Mapping native structure to %s' % PolyName
         # read in unmapped Pdb
         if AAPdb is None: AAPdb = os.path.join(NATIVEPATH['Unmapped'], self.PdbName + '.pdb')
-        # check if unmapped Pdb has multiple frames
-        with open(AAPdb, 'r') as of: head = of.readlines(10)
-        head = ''.join(head)
-        if head.__contains__('Model'):  p_AA = protein.ProteinClass(AAPdb, Model = 1)
-        else: p_AA = protein.ProteinClass(AAPdb)
+        p_AA = protein.ProteinClass(AAPdb)
+        p_AA = protein.ProteinClass(AAPdb)
         # map the polymer to this sequence
         p_AA = p_AA.Decap()
         NewSeq = [PolyName] * len(p_AA.Seq)
@@ -140,6 +160,7 @@ class ProteinNCOS(object):
         p_AA = p_AA.Cap() # add ACE and NME caps, else Amber starts yelling
         NewAAPdb = 'tmpAA.pdb'
         p_AA.WritePdb(NewAAPdb)
+        if Verbose: print 'Mapping native structure to %s-%s' % (PolyName, len(NewSeq))
         # energy minimize this pdb
         RunPath = os.path.join(os.getcwd(), 'AmberEneMin')
         if EneMin:
@@ -170,9 +191,7 @@ def MakeSys(p, cfg = None, NMols = 1):
        p is ProteinNCOS type object
        cfg is the global config object '''
     if Verbose == True:
-        print 'Generating System topology...'
-    # unpack sidechain atoms
-    AtomS = p.AtomS
+        print 'Generating backbone topology...'
     # generate the molecule
     AtomList = []
     for i,r in enumerate(p.Seq):
@@ -182,8 +201,17 @@ def MakeSys(p, cfg = None, NMols = 1):
         elif p.hasSpecialBBPROTorsions:
             if r == 'PRO': res = [AtomN, AtomC_PRO, AtomO]
         else: res = [AtomN, AtomC, AtomO]
-        # sidechain
-        if not AtomS[r] is None: res.append(AtomS[r])
+        # sidechain atoms
+        # ref by name
+        if cfg.SSRefType == 'name':
+            if not p.AtomSbyRes[r] is None: res.append(p.AtomSbyRes[r])
+        # ref by number
+        elif cfg.SSRefType == 'number':
+            if not p.AtomSbyNum[i] is None: res.append(p.AtomSbyNum[i])
+        else:
+            print 'Error: Unknown sidechain reference type, or not implemented yet'
+            exit()
+        # add to AtomList 
         AtomList.extend(res)
     Mol = sim.chem.MolType(p.Prefix, [i for i in AtomList])
     # generate bonds
