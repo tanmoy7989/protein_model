@@ -53,11 +53,11 @@ def AlignProtein(p, pNative, BBInds):
     p.Pos[BBInds] = newBBPos
     return p, pNative
 
-def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False):
+def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False, hasPseudoGLY = False):
     global doRotate
     if OutPrefix is None: OutPrefix = 'go'
     # parse BBInds
-    p_cg = cgprotein.ProteinNCOS(NativePdb)
+    p_cg = cgprotein.ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
     BBInds = p_cg.GetBBInds()
     # read pdbs
     pNative = protein.ProteinClass(NativePdb)
@@ -122,11 +122,11 @@ png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
         for x in [pic0, pic1]: os.remove(x)
     return
 
-def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefix = None):
+def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefix = None, hasPseudoGLY = False):
     if OutDir is None: OutDir = os.path.getcwd()
     if not Labels:
         Labels = [x.split('/')[-1].split('.pdb')[0] for x in NativePdbs]
-    fig = plt.figure(facecolor = 'w', edgecolor = 'w', figsize = (4*NCols, 5    *NRows))
+    fig = plt.figure(facecolor = 'w', edgecolor = 'w', figsize = (4*NCols, 5*NRows))
     N = len(NativePdbs)
     for i in range(N):
         ax = fig.add_subplot(NRows, NCols, i+1)
@@ -142,7 +142,7 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
         # align and overlay in pymol
         OutPrefix0 = os.path.join(OutDir, './this0')
         OutPrefix1 = os.path.join(OutDir, './this1')
-        Overlay(NativePdb, Pdb, OutPrefix =  OutPrefix0)
+        Overlay(NativePdb, Pdb, OutPrefix =  OutPrefix0, hasPseudoGLY = hasPseudoGLY)
         # crop pic and make it nice using imagemagick
         pic0 = OutPrefix0 + '.png'
         pic1 = OutPrefix1 + '.png'
