@@ -3,8 +3,8 @@
 import os, sys
 
 ExpName = sys.argv[1]
-FFType = sys.argv[2]
-pset_type = sys.argv[3]
+pset_type = sys.argv[2]
+FFType = sys.argv[3]
 OutDir = os.path.abspath(sys.argv[4])
 
 

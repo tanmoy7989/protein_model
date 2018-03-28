@@ -28,11 +28,8 @@ FMT = {
       }
 
 # forcefield types
-BBTYPES = ['ff_ala_spc', 'ff_ala15', 'ff_leu15', 'ff_val15',
-           'ff_leu15_bbonly', 'ff_val15_bbonly']
-GoFFTYPES = ['ff_leu15_protg_lj', 'ff_leu15_protg_spline', 'ff_ala_spc_protg_lj', 'ff_ala_spc_protg_spline',
-             'ff_leu15_bbonly_protg_lj', 'ff_leu15_bbonly_protg_spline',
-             'ff_val15_bbonly_protg_lj', 'ff_val15_bbonly_protg_spline']
+BBTYPES = ['ff_leu15_bbs', 'ff_val15_bbs', 'ff_leu15']
+GoFFTYPES = [] 
 
 # important master paths and metadata files
 FFDIR = os.path.expanduser('~/protein_model/cgff')
