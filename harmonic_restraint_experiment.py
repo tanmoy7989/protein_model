@@ -9,6 +9,9 @@ import reasonable as cg
 CURRDIR = os.getcwd()
 RoomTemp = 300.
 
+hasPseudoGLY = True
+map2Polymer = False
+
 PdbName = sys.argv[1]
 BBType = sys.argv[2]
 OutDir = os.path.abspath(sys.argv[3])
@@ -17,9 +20,16 @@ NReplica = int(sys.argv[4]) if len(sys.argv) > 4 else 8
 # parse paths etc
 OutDir = os.path.join(OutDir, PdbName)
 if not os.path.isdir(OutDir): os.system('mkdir -p %s' % OutDir)
-NativePdb = utils.parseNative(PdbName, MasterDir = os.path.expanduser('~/protein_model/native_struct/mapped'))
+if hasPseudoGLY:
+    MasterDir_Native = os.path.expanduser('~/protein_model/native_struct/mapped_pseudoGLY')
+    MasterDir_AATopClust = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped_pseudoGLY')
+else:
+    MasterDir_Native = os.path.expanduser('~/protein_model/native_struct/mapped')
+    MasterDir_AATopClust = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped')
+
+NativePdb = utils.parseNative(PdbName, MasterDir = MasterDir_Native)
 try:
-    AATopClustPdb = utils.parseNative(PdbName, MasterDir = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped'))
+    AATopClustPdb = utils.parseNative(PdbName, MasterDir = MasterDir_AATopClust)
 except IOError:
     print 'Utils Error: Requested Top clust pdb does not exist'
     AATopClustPdb = None
@@ -30,6 +40,9 @@ Prefix = 'prot_' + PdbName
 MinBondOrd = FFMetadata['MinBondOrd']
 NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
+
+# back-bone, sidechain parameters
+NCOSType = FFMetadata['NCOSType']
 
 # Go parameters
 HarmonicFluct = 1.0 # used to tune the force constant in s-s bias
@@ -69,16 +82,20 @@ if isDone: exit()
 # set up config object
 cfg = cg.config.Config()
 
+# pseudo glycine side chain
+hasPseudoGLY = %(HASPSEUDOGLY)d
+if hasPseudoGLY: cfg.AtomS['GLY'] = cg.const.AtomS_GLY
+
 # backbone settings
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
-cfg.NCOSType = 2 # constant excluded vol potential between backbone and sidechain
+cfg.NCOSType = %(NCOSTYPE)d
 
 # native contacts
 cfg.NativeType = 2
 cfg.HarmonicFluct = %(HARMONICFLUCT)g
-cfg.Map2Polymer = True
+cfg.Map2Polymer = %(MAP2POLYMER)d
 cfg.PolyName = "%(POLYNAME)s"
 
 # dont apply potential between nonnative contacts
@@ -96,6 +113,9 @@ p, Sys = cg.cgmodel.makeGoSys(NativePdb = "%(NATIVEPDB)s", cfg = cfg, Prefix = P
 # load backbone forcefield file
 cg.cgmodel.loadParam(Sys, "%(FF_FILE)s")
 
+# show the forcefield
+print Sys.ForceField.ParamString()
+
 # compile REMD object
 md = cg.md.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
                    NStepsMin = %(NSTEPSMIN)d, NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
@@ -111,7 +131,7 @@ md.reorderTraj(ReorderTemps = [%(TEMPSET)3.2f] )
 t3 = time.time()
         
 # print stats
-print "REMD time: ", (t2-t1), " seconds"
+print "REMD time: ", (t2-1), " seconds"
 print "Reordering time: ", (t3-t2), " seconds"
 '''
     
@@ -130,8 +150,8 @@ date
 python remd.py
 mkdir -p ./NativeAnalysis
 mkdir -p ./AATopClustAnalysis
-python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis
-python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis
+python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis %(HASPSEUDOGLY)d
+python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d
 date
 '''
 # dict for filling md script template
@@ -144,7 +164,12 @@ d1 = {
       'NKNOT'           : NKnot,
       'SPCUT'           : SPCut,
       
+      'NCOSTYPE'        : NCOSType,
+
       'HARMONICFLUCT'   : HarmonicFluct,
+
+      'HASPSEUDOGLY'    : hasPseudoGLY,
+      'MAP2POLYMER'     : map2Polymer,
       'POLYNAME'        : PolyName,
 
       'TLOW'            : TLow,
@@ -161,7 +186,7 @@ d1 = {
     }
 
 # dict for filling job script template
-d2 = {'JOBNAME': Prefix, 'NATIVEPDB': NativePdb, 'AATOPCLUSTPDB': AATopClustPdb, 'PREFIX': Prefix}
+d2 = {'JOBNAME': Prefix, 'NATIVEPDB': NativePdb, 'AATOPCLUSTPDB': AATopClustPdb, 'PREFIX': Prefix, 'HASPSEUDOGLY': hasPseudoGLY}
 
 # run REMD job
 mdscript = os.path.join(OutDir, 'remd.py')

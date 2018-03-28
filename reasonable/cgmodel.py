@@ -61,6 +61,7 @@ def loadParam(Sys, FF_file):
 
 def CheckSys(p, Sys, cfg):
     ''' checks the system to ensure filters have been applied correctly''' 
+    #TODO:
     pass
 
 def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
@@ -96,17 +97,17 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
 
 def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
-    # create system topology
-    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
     # ensure that sidechains are referenced according to residue number
     cfg.SSRefType = 'number'
+    # create system topology
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix) 
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
-    BB = bb.P_Backbone(p, Sys, cfg)
+    BB = bb.P_Backbone(p, Sys, cfg = cfg)
     ff.extend(BB.BB_0())
     # create backbone-sidechain potentials
-    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
+    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
     # 1-alphabet bonded potentials
     cfg.Bonded_NCOSType = 1
     ff.extend(BB_S.BB_S_Bonded_1())
@@ -120,7 +121,7 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     if cfg.Map2Polymer:
         MappedContactDict = ps.Map2Polymer(p = p, PolyName = cfg.PolyName, ContactDict = ContactDict)
         ContactDict = MappedContactDict
-    SS = ss.P_Sidechain(p, Sys, cfg)
+    SS = ss.P_Sidechain(p, Sys, cfg = cfg)
     # native contacts
     if cfg.NativeType == 0: ff.extend(SS.Go_native_0(ContactDict))
     if cfg.NativeType == 1: ff.extend(SS.Go_native_1(ContactDict))

@@ -95,7 +95,7 @@ class ProteinNCOS(object):
     ResRadius = 8.0
     MinCO = 3
     
-    def __init__(self, Pdb, Model = None):
+    def __init__(self, Pdb, Model = None, hasPseudoGLY = False):
         # protected (internal) proteinclass object
         self.Pdb = Pdb
         self.__p = protein.ProteinClass(Pdb, Model = Model)
@@ -106,6 +106,7 @@ class ProteinNCOS(object):
         # sequence manipulation
         self.UpdateSeq()
         # set atom start indices
+        self.hasPseudoGLY = hasPseudoGLY
         self.StartInds = []
         self.GetStartInds()
         # bacbone indices
@@ -140,7 +141,7 @@ class ProteinNCOS(object):
         x = 0
         for i, r in enumerate(self.Seq):
             self.StartInds.append(x)
-            if r == 'GLY': x+= 3
+            if r == 'GLY' and not self.hasPseudoGLY: x+= 3
             else: x += 4
         return
     
@@ -294,7 +295,7 @@ class ProteinNCOS(object):
 # functions suffixed _frame only calculates per frame data and no histograms
 class Compute(object):
     Recompute = False
-    def __init__(self, NativePdb, TrajFn = None, Temp = None, Prefix = 'compute'):
+    def __init__(self, NativePdb, TrajFn = None, Temp = None, Prefix = 'compute', hasPseudoGLY = False):
         # parse out-prefix
         self.Prefix = os.path.abspath(Prefix)
         self.OutPrefix = self.Prefix.split('/')[-1]
@@ -310,7 +311,7 @@ class Compute(object):
             self.Temp = Temp
         # cg protein objects for native and predicted
         self.pNative = ProteinNCOS(NativePdb)
-        self.p = ProteinNCOS(NativePdb)
+        self.p = ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
    
     def Update(self, TrajFn = None, Temp = None):
         # updates the compute object if traj or temp is changed
@@ -481,7 +482,6 @@ class Compute(object):
             ContactPickle = FMT['RESCONTACTS'] % (self.Prefix, self.Temp)
             with open(ContactPickle, 'r') as of: data = pickle.load(of)
             ContactMap, ContactDist = data
-            #TODO: histogram this instead of taking an average
             ClustContactMap = np.mean(ContactMap, axis = 0)
         if CompType == 'topclust':
             self.Cluster()

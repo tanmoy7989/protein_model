@@ -17,10 +17,13 @@ sim.srel.optimizetraj.PlotFmt = 'svg'
 
 class Srel(object):
     ''' runs relative entropy optimization for polymers, Go models in single and extended ensemble situations'''
-    def __init__(self, p, Sys, AATraj, Temps, Prefix = None, OutDir = os.getcwd(), **kwargs):
+    def __init__(self, p, Sys, AATraj, Temps, cfg = None, Prefix = None, OutDir = os.getcwd(), **kwargs):
+        # read in protein, Sys and traj objects
         self.p = p
         self.Sys = Sys
         self.AATraj = AATraj
+        # config object
+        self.cfg = cfg if not cfg is None else self.p.cfg
         # prefix
         if Prefix is None: Prefix = p.Prefix
         self.Prefix = os.path.abspath(os.path.join(OutDir, Prefix))

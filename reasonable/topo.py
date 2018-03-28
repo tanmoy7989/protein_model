@@ -25,6 +25,13 @@ class ProteinNCOS(object):
         # has special torsion potentials
         self.hasSpecialBBGLYTorsions = cfg.hasSpecialBBGLYTorsions
         self.hasSpecialBBPROTorsions = cfg.hasSpecialBBPROTorsions
+        # has special sidechains for glycine
+        self.hasPseudoGLY = cfg.hasPseudoGLY()
+        if self.hasSpecialBBGLYTorsions and self.hasPseudoGLY:
+            print 'Error: Cannot have pseudo GLY side chain and special GLY BB torsion simultaneously'
+            exit()
+        # sidechain referencing
+        self.SSRefType = cfg.SSRefType
         # extract the entire config object just in case
         self.cfg = cfg
         # sequence book-keeping
@@ -149,6 +156,7 @@ class ProteinNCOS(object):
         ''' maps the given Pdb to a polymer of equivalent length 
         and returns a coarse grained protein obj for the mapped polymer
         Energy minimization not yet implemented'''
+        import map
         # read in unmapped Pdb
         if AAPdb is None: AAPdb = os.path.join(NATIVEPATH['Unmapped'], self.PdbName + '.pdb')
         p_AA = protein.ProteinClass(AAPdb)
@@ -174,8 +182,7 @@ class ProteinNCOS(object):
             NewAAPdb = os.path.join(RunPath, 'current.pdb')
         # coarse grain this pdb
         NewCGPdb = 'tmpCG.pdb'
-        cmd = 'python %s %s %s' % (MAPSCRIPT, NewAAPdb, NewCGPdb.split('.pdb')[0])
-        os.system(cmd)
+        map.Map(InPdb = NewAAPdb, CGPrefix = NewCGPdb.split('.pdb')[0], hasPseudoGLY = self.hasPseudoGLY)
         # read in the cg ProteinNCOS object
         p_New = self.__class__(Pdb = NewCGPdb, cfg = self.cfg)
         # delete temp files
@@ -194,7 +201,7 @@ def MakeSys(p, cfg = None, NMols = 1):
         print 'Generating backbone topology...'
     # generate the molecule
     AtomList = []
-    s = ' Added side chain atoms by %s: ' % cfg.SSRefType
+    s = ' Added side chain atoms by %s: ' % p.SSRefType
     for i,r in enumerate(p.Seq):
         # backbone atoms
         if p.hasSpecialBBGLYTorsions:
@@ -204,15 +211,17 @@ def MakeSys(p, cfg = None, NMols = 1):
         else: res = [AtomN, AtomC, AtomO]
         # sidechain atoms
         # ref by name
-        if cfg.SSRefType == 'name':
+        if p.SSRefType == 'name':
             if not p.AtomSbyRes[r] is None:
                 res.append(p.AtomSbyRes[r])
-                s += res[-1].Name + ', '
+                s += '%s' % res[-1].Name
+                if i < p.NRes-1: s += ', '
         # ref by number
-        elif cfg.SSRefType == 'number':
+        elif p.SSRefType == 'number':
             if not p.AtomSbyNum[i] is None:
                 res.append(p.AtomSbyNum[i])
-                s += res[-1].Name + ', '
+                s += '%s (%s)' % (res[-1].Name, r)
+                if i < p.NRes-1: s+= ', '
         else:
             print 'Error: Unknown sidechain reference type, or not implemented yet'
             exit()

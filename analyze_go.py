@@ -14,6 +14,7 @@ NativePdb = os.path.abspath(sys.argv[1])
 Prefix = sys.argv[2]
 TrajDir = os.path.abspath(sys.argv[3])
 OutDir = os.path.abspath(sys.argv[4])
+hasPseudoGLY = int(sys.argv[5]) if len(sys.argv) > 5 else False
 
 # get tempset
 TempFile = os.path.join(TrajDir, 'temps.txt')
@@ -44,7 +45,7 @@ print '----------------------------------------------------------------'
 
 # set up Compute object
 print 'Creating Compute object'
-calc = cg.Compute(NativePdb = NativePdb, TrajFn = TrajFn, Temp = TempSet, Prefix = OutPrefix)
+calc = cg.Compute(NativePdb = NativePdb, TrajFn = TrajFn, Temp = TempSet, Prefix = OutPrefix, hasPseudoGLY = hasPseudoGLY)
 
 # calculate overall rmsd
 def RMSD():

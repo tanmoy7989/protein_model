@@ -20,6 +20,8 @@ class Config(object):
         s2 = 'Current config:\n'
         for k, v in DEFAULTS.iteritems(): s2 += '%s: %s\n' % (k, self.__dict__[k])
         return s1 + '\n' + s2
-
+    
+    def hasPseudoGLY(self):
+        return not(self.AtomS['GLY'] is None)
     
 

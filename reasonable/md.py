@@ -8,6 +8,8 @@
 import os, numpy as np
 import sim, protein
 import pickleTraj
+
+import map
 from const import *
 
 Verbose = True
@@ -20,10 +22,14 @@ sim.export.lammps.MaxPairEnekBT = 20 # increased from 20 kT to prevent crashes
 class REMD(object):
     ''' runs REMD and multiplexes trajectories according to temperature using LAMMPS
         input MD iterations and timestep are all measured in femtoseconds'''
-    def __init__(self, p, Sys, Prefix = None, InitPdb = None, Temps = None, TempFile = None, OutDir = os.getcwd() , **kwargs):
+    def __init__(self, p, Sys, cfg = None, Prefix = None, InitPdb = None, Temps = None, TempFile = None, OutDir = os.getcwd() , **kwargs):
+        # read in protein and Sys objects
         self.p = p
         self.Sys = Sys
         self.TempSet = self.Sys.TempSet
+        # config object
+        self.cfg = cfg if not cfg is None else self.p.cfg
+        # Prefixes, Output locations etc 
         self.OutDir = OutDir
         if Prefix is None: Prefix = self.p.Prefix
         self.RunPrefix = Prefix
@@ -61,7 +67,7 @@ class REMD(object):
             pobj = pobj.Decap()
             pobj.WritePdb(tmpPdb)
             # coarse grain all-atom proteinclass object
-            os.system('python %s %s %s' % (MAPSCRIPT, tmpPdb, self.InitPdb.split('.')[0]))
+            map.Map(InPdb = tmpPdb, CGPrefix = self.InitPdb.split('.')[0], hasPseudoGLY = self.p.hasPseudoGLY)
             # remove all-atom pdb
             if os.path.isfile(tmpPdb): os.remove(tmpPdb)
             del pobj

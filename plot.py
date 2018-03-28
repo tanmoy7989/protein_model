@@ -263,14 +263,23 @@ def PlotContactOrder(DataDir, Prefix = None):
 
 
 ######## MAIN ########
-HELPSTR = '''USAGE: python ~/Go/plot.py pset_type OutDir'''
+HELPSTR = '''USAGE: python ~/protein_model/plot.py pset_type OutDir hasPseudoGLY (0 or 1)'''
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print HELPSTR
         exit()
+    
+    hasPseudoGLY = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    if hasPseudoGLY:
+        NativeDir = os.path.expanduser('~/protein_model/native_struct/mapped_pseudoGLY')
+        AATopClustDir = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped_pseudoGLY')
+    else:
+        NativeDir = os.path.expanduser('~/protein_model/native_struct/mapped')
+        AATopClustDir = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped')
 
-    PlotPanel(NativeDir = None, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native')
-    PlotPanel(NativeDir = os.path.expanduser('~/Go/native_struct/ff96_igb5_glghs_topclust_mapped'), DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust')
+
+    PlotPanel(NativeDir = NativeDir, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native')
+    PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust')
     
     PlotRamaProb(DataDir = 'NativeAnalysis', Prefix = 'ramaprob_native')
     PlotRamaProb(DataDir = 'AATopClustAnalysis', Prefix = 'ramaprob_topclust')

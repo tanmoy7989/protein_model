@@ -10,9 +10,10 @@ from const import *
 Verbose = True
 
 class P_Backbone_Sidechain(object):
-    def __init__(self, p, Sys, cfg):
+    def __init__(self, p, Sys, cfg = None):
         ''' initialized a class for backbone potentials
             cfg is a configuration object'''
+        if cfg is None: cfg = p.cfg
         # extract relevant settings
         self.MinBondOrd = cfg.MinBondOrd
         self.NKnot = cfg.NKnot

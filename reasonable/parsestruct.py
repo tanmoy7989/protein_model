@@ -30,6 +30,7 @@ def ParsePdb(p):
     fn.write('#Res_i Res_j d_com d_ss\n')
     fnn.write('#Res_i Res_j d_com d_ss\n')
     s = ' Used Alpha-Carbon as side chain for residues: '
+    s0 = copy.copy(s)
     for i in range(len(p.Seq)-1):
         for j in range(i+1, len(p.Seq)):
             # ignore adjacent residues
@@ -66,6 +67,7 @@ def ParsePdb(p):
                 fnn.write('%3d %3d %3.2f %3.2f\n' % (i, j, d_com, d_ss))
     fn.close()
     fnn.close()
+    if s == s0: s += 'None'
     if Verbose: print s
     # convert to arrays
     d_native = np.array(d_native)
