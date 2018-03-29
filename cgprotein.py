@@ -57,39 +57,6 @@ def TrimPMF(pmf, LastNBins = 10, Dim = 2):
     return pmf
 
 
-def TrimDihedrals(phi, psi, ResNums, NRes = None, RamaType = 'Generic'):
-    # trim generic type dihedrals to remove phi of first residue
-    # and psi of last residue that are undefined
-    # not sure what to do for other rama types
-    Dim = len(phi.shape)
-    if NRes is None: NRes = len(ResNums)
-    Case1 = [(RamaType == 'Generic'), (RamaType == 'GLY'), (RamaType == 'PRO')]
-    Case2 = ResNums.__contains__(0)
-    Case3 = ResNums.__contains__(NRes-1)
-    if Case1[0] and Case2 and Case3:
-        if Dim == 1:
-            phi_ = phi[1:]
-            psi_ = psi[:-1]
-        else:
-            phi_ = phi[: , 1:]
-            psi_ = psi[: , :-1]
-    else:
-        print "Not implemented yet..."
-        phi_ = phi
-        psi_ = psi
-    return phi_, psi_
-
-def PackContactMap(ContactMap):
-    #TODO: write a packing routine for better memory management
-    SparseContactMap = ContactMap
-    return SparseContactMap
-
-def UnpackContactMap(SparseContactMap):
-    #TODO: write an unpacking routine
-    return SparseContactMap
-
-
-
 # CG protein object that defines basic topology and computation routines for order params
 class ProteinNCOS(object):
     ResRadius = 8.0
@@ -243,15 +210,11 @@ class ProteinNCOS(object):
             rmsd_restype[r] /= float(self.ResCount[r])
         return rmsd_restype
     
-    def GetPhiPsi(self, RamaType = None, ResNums = None):
+    def GetPhiPsi(self, ResNums = None):
         if ResNums is None: ResNums = range(self.NRes)
-        #if RamaType is None: RamaType = 'Generic'
-        ind_GLY = [k for k, v in enumerate(self.Seq) if v == 'GLY']
-        ind_PRO = [k for k, v in enumerate(self.Seq) if v == 'PRO']
-        if RamaType == 'Generic': [ResNums.remove(k) for k in ind_PRO + ind_GLY]
-        if RamaType == 'GLY': ResNums = ind_GLY
-        if RamaType == 'PRO': ResNums = ind_PRO
-        if not ResNums: return (None, None)
+        # exclude terminal residues
+        if ResNums.__contains__(0): ResNums.remove(0)
+        if ResNums.__contains__(self.NRes-1): ResNums.remove(self.NRes-1)
         # get the entire backbone pos coordinates
         BBPos = self.GetBBPosSlice()
         Phi = np.zeros(len(ResNums))
@@ -259,27 +222,18 @@ class ProteinNCOS(object):
         for i, r in enumerate(ResNums):
             Pos = BBPos[r*3 : (r+1)*3]
             PosN = Pos[0] ; PosC = Pos[1] ; PosO = Pos[2]
-            if r > 0 and r < self.NRes - 1:
-                PosO_prev = BBPos[(r-1)*3 + 2]
-                PosN_next = BBPos[(r+1)*3]
-            elif r == 0:
-                # estimate approximately position of the previous O
-                PosO_prev = PosN + sim.geom.UnitVec(PosC - PosO) * PeptideBondLen
-                PosN_next = BBPos[(r+1)*3]
-            elif r == self.NRes - 1:
-                PosO_prev = BBPos[(r-1)*3 + 2]
-                # estimate approximately position of the next N
-                PosN_next = PosO + sim.geom.UnitVec(PosC - PosN) * PeptideBondLen
+            PosO_prev = BBPos[(r-1)*3 + 2]    
+            PosN_next = BBPos[(r+1)*3]
             Phi[i] = sim.geom.Dihedral(PosO_prev, PosN, PosC, PosO)
             Psi[i] = sim.geom.Dihedral(PosN, PosC, PosO, PosN_next)
             Phi[i] = sim.geom.NormRad(Phi[i])
             Psi[i] = sim.geom.NormRad(Psi[i])
         return Phi, Psi
         
-    def GetPhiPsiDiff(self, other, ResNums = None, RamaType = None):
+    def GetPhiPsiDiff(self, other, ResNums = None):
         if ResNums is None: ResNums = range(self.NRes)
-        Phi1, Psi1 = other.GetPhiPsi(ResNums = ResNums, RamaType = RamaType)
-        Phi, Psi = self.GetPhiPsi(ResNums = ResNums, RamaType = RamaType)
+        Phi1, Psi1 = other.GetPhiPsi(ResNums = ResNums)
+        Phi, Psi = self.GetPhiPsi(ResNums = ResNums)
         PhiDiff = np.zeros(len(ResNums))
         PsiDiff = np.zeros(len(ResNums))
         for i in ResNums:
@@ -358,6 +312,28 @@ class Compute(object):
             rmsd_frame[i] = self.p.QuickRMSD(self.pNative)
             pb.Update(i)
         return rmsd_frame
+    
+    def ResContacts_frame(self):
+        # makes sense to store the entire per frame data since
+        # multiple computations can be done on this entire data set
+        # and those calculations need not be saved to a pickle
+        picklename = FMT['RESCONTACTS'] % (self.Prefix, self.Temp)
+        if os.path.isfile(picklename) and not self.Recompute: return
+        BoxL = self.Trj.FrameData['BoxL']
+        # loop over frames to get average CG contact distances   
+        ContactMap = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
+        ContactDist = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
+        pb = sim.utility.ProgressBar(Text = 'Enumerating contacts at %3.2fK...' % self.Temp, Steps = self.NFrames)
+        for i, frame in enumerate(self.FrameRange):
+            Pos = self.Trj[frame]
+            self.p.UpdatePos(Pos)
+            x, y = self.p.GetResContacts()
+            ContactMap[i,:,:] = x
+            ContactDist[i,:,:] = y
+            pb.Update(i)
+        ret = (ContactMap, ContactDist)
+        with open(picklename, 'w') as of: pickle.dump(ret, of)
+        return
         
     def QuickRMSD(self):
         # get overall RMSD distribution, but don't save to file
@@ -451,28 +427,6 @@ class Compute(object):
         file(clustfilename, 'w').write(clustpdbstr + '\n' + connectstr)
         return
 
-    def ResContacts_frame(self):
-        # makes sense to store the entire per frame data since
-        # multiple computations can be done on this entire data set
-        # and those calculations need not be saved to a pickle
-        picklename = FMT['RESCONTACTS'] % (self.Prefix, self.Temp)
-        if os.path.isfile(picklename) and not self.Recompute: return
-        BoxL = self.Trj.FrameData['BoxL']
-        # loop over frames to get average CG contact distances   
-        ContactMap = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
-        ContactDist = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
-        pb = sim.utility.ProgressBar(Text = 'Enumerating contacts at %3.2fK...' % self.Temp, Steps = self.NFrames)
-        for i, frame in enumerate(self.FrameRange):
-            Pos = self.Trj[frame]
-            self.p.UpdatePos(Pos)
-            x, y = self.p.GetResContacts()
-            ContactMap[i,:,:] = x
-            ContactDist[i,:,:] = y
-            pb.Update(i)
-        ret = (ContactMap, ContactDist)
-        with open(picklename, 'w') as of: pickle.dump(ret, of)
-        return
-
     def CompareContactMap(self, CompType = 'traj'):
         # get AA contact map
         NativeContactMap, NativeContactDist = self.pNative.GetResContacts()
@@ -539,47 +493,26 @@ class Compute(object):
         # get AA contact distances
         pass
     
-    def RamaChandran(self, ResNums = None, doRamaProb = True):
+    def RamaChandran(self, doRamaProb = True):
         measure.NBlocks = 1
         picklename = FMT['RAMA'] % (self.Prefix, self.Temp)
         if os.path.isfile(picklename) and not self.Recompute: return
-        if ResNums is None: ResNums = range(self.p.NRes)
-        # get proline and glycine indices
-        ind_GLY = [k for k, v in enumerate(self.p.Seq) if v == 'GLY']
-        ind_PRO = [k for k, v in enumerate(self.p.Seq) if v == 'PRO']
-        # different types of rama plots
-        ResNums_generic = copy.copy(ResNums)
-        [ResNums_generic.remove(k) for k in ind_GLY + ind_PRO]
-        ResNums_GLY = ind_GLY
-        ResNums_PRO = ind_PRO
-        RamaData = {'Generic': None, 'GLY': None, 'PRO': None}
-        RamaTypes = RamaData.keys()
-        for k, r in enumerate([ResNums_generic, ResNums_GLY, ResNums_PRO]):
-            if not r: continue
-            Phi = np.zeros([self.NFrames, len(r)], np.float64)
-            Psi = np.zeros([self.NFrames, len(r)], np.float64)
-            pb = sim.utility.ProgressBar('Calculating %s Phi, Psi at %3.2f K...' % (RamaTypes[k], self.Temp), Steps = self.NFrames)
-            for i, frame in enumerate(self.FrameRange):
-                Pos = self.Trj[frame]
-                self.p.UpdatePos(Pos)
-                # supplying a RamaType here leads to more list manipulation within
-                # the ProteinNCOS object's own PhiPsi calculator
-                Phi[i, :], Psi[i, :] = self.p.GetPhiPsi(ResNums = r, RamaType = None)
-                pb.Update(i)
-            # remove undefined dihedrals
-            if RamaTypes[k] == 'Generic' and len(ResNums) == self.p.NRes:
-                Phi, Psi = TrimDihedrals(Phi, Psi, ResNums = r, RamaType = 'Generic')
-            # histogram the dihedrals
-            if doRamaProb:
-                measure.Normalize = True
-                measure.NBins = NBins
-                measure.NBlocks = NBlocks
-                hist = measure.makeHist2D(x = Phi, y = Psi)
-                ret = (Phi, Psi, hist)
-            else: ret = (Phi, Psi)
-            RamaData[RamaTypes[k]] = ret
-        
-        with open(picklename, 'w') as of: pickle.dump(RamaData, of)
+        Phi = np.zeros([self.NFrames, self.p.NRes-2], np.float64)
+        Psi = np.zeros([self.NFrames, self.p.NRes-2], np.float64)
+        pb = sim.utility.ProgressBar('Calculating Phi, Psi at %3.2f K...' % self.Temp, Steps = self.NFrames)
+        for i, frame in enumerate(self.FrameRange):
+            Pos = self.Trj[frame]
+            self.p.UpdatePos(Pos)
+            Phi[i, :], Psi[i, :] = self.p.GetPhiPsi()
+            pb.Update(i)    
+        if doRamaProb:
+            measure.Normalize = True
+            measure.NBins = NBins
+            measure.NBlocks = NBlocks
+            hist = measure.makeHist2D(x = Phi, y = Psi)
+            ret = (Phi, Psi, hist)
+        else: ret = (Phi, Psi)
+        with open(picklename, 'w') as of: pickle.dump(ret, of)
         return
         
         

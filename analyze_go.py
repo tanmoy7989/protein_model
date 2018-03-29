@@ -70,9 +70,8 @@ def PhiPsiErr(ErrType = 'traj'):
     print 'Calculating Ramachandran plot errors with native struct'
     # get native phi, psi
     pNative = cg.ProteinNCOS(NativePdb)
-    Phi_Native, Psi_Native = pNative.GetPhiPsi(RamaType = 'Generic')
-    Phi_Native, Psi_Native = cg.TrimDihedrals(Phi_Native, Psi_Native, RamaType = 'Generic', ResNums = range(pNative.NRes) )
-    Err = np.zeros([pNative.NRes - 1], float)
+    Phi_Native, Psi_Native = pNative.GetPhiPsi()
+    Err = np.zeros(len(Phi_Native), float)
     
     # errors from top cluster
     if ErrType == 'topclust':
@@ -80,17 +79,14 @@ def PhiPsiErr(ErrType = 'traj'):
         if not os.path.isfile(ClustPdb):
             raise IOError('Top cluster for %s missing' % Prefix)
         p = cg.ProteinNCOS(ClustPdb, Model = 1)
-        PhiErr, PsiErr, Err = pNative.GetPhiPsiDiff(p, RamaType = 'Generic')
-        # remove undefined dihedrals and recompute Err
-        PhiErr = PhiErr[1:] ; PsiErr = PsiErr[:-1]
-        Err = np.sqrt(PhiErr**2. + PsiErr**2.)
+        PhiErr, PsiErr, Err = pNative.GetPhiPsiDiff(p)
     
     # errors from entire traj
     if ErrType == 'traj':
         calc.RamaChandran()
         RamaPickle = FMT['RAMA'] % (OutPrefix, TempSet)
         with open(RamaPickle, 'r') as of: data = pickle.load(of)
-        Phi, Psi, hist = data['Generic']
+        Phi, Psi, hist = data
         for i in range(len(Phi_Native)):
             # per frame phi-psi errors
             this_Phidiff = sim.geom.NearestAngle(Phi_Native[i] - Phi[:, i], 0.0)

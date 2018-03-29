@@ -4,7 +4,7 @@ import os, shutil, sys, numpy as np, cPickle as pickle, shelve
 import utils, vis
 
 #### PREDICTED STRUCTURES PANEL ####
-def PlotPanel(DataDir, NativeDir = None, Prefix = None):
+def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False):
     print 'PLOTTING PANELS'
     print '---------------'
     import matplotlib ; matplotlib.use('Agg')
@@ -35,7 +35,7 @@ def PlotPanel(DataDir, NativeDir = None, Prefix = None):
             else: Labels.append(None)
     # plot panel
     print 'Rendering...'
-    vis.Panel(NativePdbs, ClustPdbs, layout['NRows'], layout['NCols'], Labels, OutDir = OutDir, PanelPrefix = Prefix)
+    vis.Panel(NativePdbs, ClustPdbs, layout['NRows'], layout['NCols'], Labels, OutDir = OutDir, PanelPrefix = Prefix, hasPseudoGLY = hasPseudoGLY)
     return
 
 
@@ -69,7 +69,7 @@ def PlotRamaProb(DataDir, Prefix = None):
             continue
         PhiNative, PsiNative, Err = RamaErr
         with open(RamaPickle, 'r') as of: data = pickle.load(of)
-        PhiClust, PsiClust, RamaHist = data['Generic']
+        PhiClust, PsiClust, RamaHist = data
         (PhiCenters, PsiCenters), h, err = RamaHist
         RamaPmf = - np.log(h)
         # convert all angles to degrees
@@ -78,11 +78,11 @@ def PlotRamaProb(DataDir, Prefix = None):
         PhiCenters *= (180. / np.pi)
         PsiCenters *= (180. / np.pi)
         # trim pmf
-        RamaPmf = RamaPmf.clip(min = -5, max = 5) # restrict within -5 kT and 5 kT
+        #RamaPmf = RamaPmf.clip(min = -5, max = 5) # restrict within -5 kT and 5 kT
         # plot
-        im = ax.imshow(np.transpose(RamaPmf), origin = 'lower', aspect = 'auto', interpolation = 'gaussian', cmap = cm.Blues,
+        im = ax.imshow(np.transpose(RamaPmf), origin = 'lower', aspect = 'auto', interpolation = 'gaussian', cmap = cm.Reds,
                        extent = [PhiCenters.min(), PhiCenters.max(), PsiCenters.min(), PsiCenters.max()])
-        ax.scatter(PhiNative, PsiNative, s = 100, c = 'red', marker = 'o', edgecolor = 'k', lw = 4)
+        ax.scatter(PhiNative, PsiNative, s = 100, c = 'blue', marker = 'o', edgecolor = 'k', lw = 4)
         ax.axhline(0., color = 'black', lw = 2)
         ax.axvline(0., color = 'black', lw = 2)
     if Prefix is None: Prefix = 'ramaprob'
@@ -278,8 +278,8 @@ if __name__ == '__main__':
         AATopClustDir = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped')
 
 
-    PlotPanel(NativeDir = NativeDir, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native')
-    PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust')
+    PlotPanel(NativeDir = NativeDir, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native', hasPseudoGLY = hasPseudoGLY)
+    PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust', hasPseudoGLY = hasPseudoGLY)
     
     PlotRamaProb(DataDir = 'NativeAnalysis', Prefix = 'ramaprob_native')
     PlotRamaProb(DataDir = 'AATopClustAnalysis', Prefix = 'ramaprob_topclust')
