@@ -35,6 +35,23 @@ def PrepSys(Sys, TempSet = RoomTemp):
     Sys.TempSet = TempSet
     Sys.BoxL = 0.0
 
+class UpdatePostLoad(object):
+    ''' updates Sys object after loading params from forcefield files'''
+    def __init__(self, Sys, cfg):
+        self.Sys = Sys
+        self.cfg = cfg
+        self.UpdateNonNativeWCA()
+        # other update methods can be added as required
+        return None
+
+    def UpdateNonNativeWCA(self):
+        print 'Updating Non-native WCA potentials for Go model'
+        for P in self.Sys.ForceField:
+            if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
+                P.Cut = P.Sigma[0] * 2**(1/6.)
+        self.Sys.ForceField.Update()
+        return
+
 def loadParam(Sys, FF_file):
     # loads only those interactions in the current system
     # if they are also present in the supplied ff file
@@ -56,7 +73,9 @@ def loadParam(Sys, FF_file):
     for P in Sys.ForceField:
         if FileParamDict.keys().__contains__(P.Name):
             P.SetParam(**(FileParamDict[P.Name]))
-            hasPotentials.append(P.Name) 
+            hasPotentials.append(P.Name)
+    s = ' Over-writing potentials %s' % (', '.join(hasPotentials))
+    print s
     return hasPotentials
 
 def CheckSys(p, Sys, cfg):
@@ -121,14 +140,16 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     if cfg.Map2Polymer:
         MappedContactDict = ps.Map2Polymer(p = p, PolyName = cfg.PolyName, ContactDict = ContactDict)
         ContactDict = MappedContactDict
-    SS = ss.P_Sidechain(p, Sys, cfg = cfg)
+    SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
     # native contacts
-    if cfg.NativeType == 0: ff.extend(SS.Go_native_0(ContactDict))
-    if cfg.NativeType == 1: ff.extend(SS.Go_native_1(ContactDict))
-    if cfg.NativeType == 2: ff.extend(SS.Go_native_2(ContactDict))
+    if cfg.NativeType == 0: ff.extend(SS.Go_native_0(Cut = cfg.NativeCut)) #TODO: think about arguments to this
+    if cfg.NativeType == 1: ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
+    if cfg.NativeType == 2: ff.extend(SS.Go_native_2(FConst = cfg.NativeFConst, HarmonicFluct = cfg.NativeHarmonicFluct))
     # non-native contacts
-    if cfg.NonNativeType == 0: ff.extend(SS.Go_nonnative_0(ContactDict))
-    if cfg.NonNativeType == 1: ff.extend(SS.Go_nonnative_1(ContactDict))
+    # Note: the non-native cutoff needs to be supplied carefully to be compatible
+    # as a WCA with the supplied sigma
+    if cfg.NonNativeType == 0: ff.extend(SS.Go_nonnative_0())
+    if cfg.NonNativeType == 1: ff.extend(SS.Go_nonnative_1()) #TODO: think about how to update this cutoff
     # populate forcefield
     Sys.ForceField.extend(ff)
     # set up other system properties

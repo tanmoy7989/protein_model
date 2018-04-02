@@ -1,4 +1,5 @@
-'''/*
+'''
+/*
  * ----------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <tanmoy.7989@gmail.com> wrote this file.  As long as you retain this notice you
@@ -103,7 +104,7 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
         import sim
         simMap = sim.atommap.PosMap()
         for i in range(NCGAtoms):
-            simMap += [sim.atommap.AtomMap(Atoms1 = Map[i], Atom2 = i)]
+            simMap += [sim.atommap.AtomMap(Atoms1 = MapDict[i], Atom2 = i)]
         AtomNames = []
         for i, r in enumerate(Seq):
             if r == 'GLY' and not hasPseudoGLY: AtomNames.extend(['N', 'C', 'O'])
@@ -146,13 +147,13 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
 
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
-    HelpStr = '''python map.py InPdb [CGPrefix] [AATraj] [PrmTop] [AmberEne] [LastNFrames]'''
+    HelpStr = '''python ~/protein_model/reasonable/map.py InPdb CGPrefix [hasPseudoGLY] [AATraj] [PrmTop] [AmberEne] [LastNFrames]'''
     if len(sys.argv) == 1:
         print HelpStr
         exit()
 
     InPdb = os.path.abspath(sys.argv[1])
-    CGPrefix = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else 'testcg'
+    CGPrefix = os.path.abspath(sys.argv[2])
     hasPseudoGLY = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     AATraj = os.path.abspath(sys.argv[4]) if len(sys.argv) > 4 else None
     PrmTop = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else None

@@ -130,10 +130,10 @@ class REMD(object):
                         thisTrajFn = '%s.%d.gz' % (TrajFile, i)
                         thisLogFn = '%s.%d' % (LogFile, i)
                         this_Traj[i] = pickleTraj(thisTrajFn, LogFile = thisLogFn, LogFileToken = '#run production')
-                        this_Ene[i] = this_Traj[i].ThermoDict['PEnergy'] # note this reads in ONLY ENERGIES IN THE PRODUCTION RUN
+                        this_Ene[i] = this_Traj[i].ThermoDict['PEnergy']
                     # keep only the parts for the production run
                     this_Traj_slice = this_Traj[i][int(self.NStepsEquil / self.StepFreq) : ]
-                    this_Ene_slice = this_Ene[i] #this_Ene[i][int(self.NStepsEquil / self.StepFreq) : ]
+                    this_Ene_slice = this_Ene[i][int(self.NStepsEquil / self.StepFreq) : ]
                     # find start and stop indices for this block 
                     start = ii * self.NStepsSwap / self.StepFreq ; stop = (ii+1) * self.NStepsSwap / self.StepFreq
                     TrajList.append(this_Traj_slice[start:stop])
@@ -148,10 +148,10 @@ class REMD(object):
                         thisTrajFn = '%s.%d.gz' % (TrajFile, i)
                         thisLogFn = '%s.%d' % (LogFile, i)
                         this_Traj[i] = pickleTraj(thisTrajFn, LogFile = thisLogFn, LogFileToken = '#run production')
-                        this_Ene[i] = this_Traj[i].ThermoDict['PEnergy'] # note this reads in ONLY ENERGIES IN THE PRODUCTION RUN
+                        this_Ene[i] = this_Traj[i].ThermoDict['PEnergy']
                     # keep only the parts for the production run
                     this_Traj_slice = this_Traj[i][int(self.NStepsEquil / self.StepFreq) : ]
-                    this_Ene_slice = this_Ene[i] #this_Ene[i][int(self.NStepsEquil / self.StepFreq) : ]
+                    this_Ene_slice = this_Ene[i][int(self.NStepsEquil / self.StepFreq) : ]
                     # find start and stop indices for this block
                     TrajList.append(this_Traj_slice[ii:ii+1])
                     EneList.extend(this_Ene_slice[ii:ii+1])

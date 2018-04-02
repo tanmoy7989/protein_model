@@ -145,7 +145,7 @@ class Srel(object):
         '''optimize Go potentials with a fixed backbone and a traj'''
         # set up optimizer object
         print 'Starting Srel optimization for Go model...'
-        Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = False, RefPosInd = self.RefPosInd)
+        Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         Opt = sim.srel.UseLammps(Opt)
         Opt.TempFileDir = os.getcwd()
         Opt.MinReweightFrames = None # need this to work with smaller mod traj
@@ -162,7 +162,7 @@ class Srel(object):
             print 'Optimizing ALL Go interactions...'
             OptSet = ['NonBondNative', 'NonBondNonNative']
         for P in self.Sys.ForceField: P.FreezeParam()
-        for P in Sys.ForceField:
+        for P in self.Sys.ForceField:
             if OptSet.__contains__(P.Name) and not self.isPermaFrost(P):
                 P.UnfreezeParam()
         Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)

@@ -111,38 +111,44 @@ class ProteinNCOS(object):
             # add to master list
             self.BondPairs.extend(BondPairs)
     
-    def GetBBInds(self):
+    def GetBBInds(self, ResNums = None):
 	''' extract the backbone indices of the structure'''
 	BBInds = []
-	for i, r in enumerate(self.Seq):
+	if ResNums is None: ResNums = range(self.NRes)
+	for i in ResNums:
 		k = self.StartAtomInds[i]
 		BBInds.extend( [k, k+1, k+2] )
 	return BBInds
    
-    def GetSInds(self):
+    def GetSInds(self, ResNums = None):
         ''' extract the sidechain indices of the structure
             returns alpha carbon index for residues with None sidechain'''
         SInds = []
-        for i, r in enumerate(self.Seq):
+        if ResNums is None: ResNums = range(self.NRes)
+        for i in ResNums:
             idx = 1 if self.AtomSbyNum[i] is None else 3
             SInds.append(self.StartAtomInds[i] + idx)
         return SInds
 
-    def GetResPos(self):
+    def GetResPos(self, ResNums = None):
         ''' get the COM of the residues'''
-        ResPos = np.zeros([self.NRes, 3])
-        for i in range(self.NRes):
+        if ResNums is None: ResNums = range(self.NRes)
+        ResPos = np.zeros([len(ResNums), 3])
+        for ii, i in enumerate(ResNums):
             start = self.StartAtomInds[i]
             stop = self.StartAtomInds[i+1] if i < self.NRes-1 else len(self.Pos)
-            ResPos[i, :] = np.mean(self.Pos[start:stop, :], axis = 0)
+            ResPos[ii, :] = np.mean(self.Pos[start:stop, :], axis = 0)
         return ResPos
 
-    def GetResContactList(self):
+    def GetResContactList(self, ResNums = None):
         ''' find native contacts with ResRadius'''
+        if ResNums is None: ResNums = range(self.NRes)
         ResContactList = []
-        ResPos = self.GetResPos()
-        for i in range(self.NRes - 1):
-            for j in range(i+1, self.NRes):
+        ResPos = self.GetResPos(ResNums = ResNums)
+        for i in ResNums:
+            for j in ResNums:
+                # ignore same residue
+                if i == j: continue
                 # ignore adjacent residues
                 if abs(i-j) < MinCO: continue
                 # calculate distance between residues

@@ -58,9 +58,7 @@ DfltAtomS = {}
 for r, mass in ResMass.iteritems():
     if r == 'BB': continue
     if r == 'GLY': DfltAtomS[r] = None
-    else:
-        this_mass = mass - ResMass['BB']
-        DfltAtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = this_mass)
+    else: DfltAtomS[r] = sim.chem.AtomType('S_%s' % r, Mass = mass - ResMass['BB'])
 
 # contact prediction
 ResRadius = 8.0 #A
@@ -95,20 +93,19 @@ DEFAULTS = dict(
             hasSpecialBBPROTorsions = False,
 
             # Go models
-            NativeSigma = None,
+            # 1) LJ and splined native interactions
             NativeEpsilon = 4 * kB * RoomTemp,
             NativeCut = 1.2 * ResRadius,
-            NativeNKnot = 20,
             
-            HarmonicFluct = 1.0,
+            # 2) Harmonic restraints
+            NativeHarmonicFluct = 1.0,
             NativeFConst = None,
             Map2Polymer = False,
             PolyName = None,
 
-            NonNativeSigma = None,
+            # 3) LJ and splined nonnative interactions
             NonNativeEpsilon = 4 * kB * RoomTemp,
-            NonNativeCut = None,
-            NonNativeNKnot = 20,
+            NonNativeCut = None, # force a WCA-type cutoff
         
             # timestep
             TimeStep = 1.0, #fs
