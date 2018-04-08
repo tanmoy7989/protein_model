@@ -6,7 +6,7 @@ import const
 import config
 
 import topo
-import map
+import mapNCOS
 
 import bb
 import bb_s

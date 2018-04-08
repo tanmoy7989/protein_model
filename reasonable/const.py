@@ -64,8 +64,9 @@ for r, mass in ResMass.iteritems():
 ResRadius = 8.0 #A
 MinCO = 3
 
-# LAMMPS binary
+# LAMMPS settings
 LAMMPSEXEC = os.environ['LAMMPSEXEC']
+MaxLammpsPairEnekBT = 20 # might need to increase to prevent sim crashes
 
 # model defaults
 # put anything here that you want to be dynamically configurable
@@ -129,7 +130,7 @@ NATIVEPATH = {'Unmapped'  : os.path.expanduser('~/protein_model/native_struct/un
               'Mapped'    : os.path.expanduser('~/protein_model/native_struct/mapped')} 
 
 # mapping script
-MAPSCRIPT = os.path.expanduser('~/protein_model/reasonable/map.py')
+MAPSCRIPT = os.path.expanduser('~/protein_model/reasonable/mapNCOS.py')
 HELPSTR = '''
 CG Model Types:
 SSRefType: controls whether sidechains are named according to name or number of the residue

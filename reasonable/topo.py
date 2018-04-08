@@ -5,12 +5,11 @@
 import os, numpy as np, copy
 from const import *
 import sim
-import protein, mdsim # /share/apps/scripts/mdsim
+import protein, mdsim
 
 Verbose = True
 protein.MinCODflt = MinCO
 protein.ResRadiusDflt = ResRadius
-mdsim.RunDflts['MODEL'] = 'ff96glghs'
 
 class ProteinNCOS(object):
     ''' A rudimentary object to create and store the NCOS toplogy 
@@ -18,8 +17,8 @@ class ProteinNCOS(object):
         a global config object must be supplied that contains
         sim-style AtomType objects
     '''    
-    def __init__(self, cfg, Pdb = None, Seq = None, Prefix = 'ncos'):
-        if Verbose: print 'Creating the NCOS protein object...'
+    def __init__(self, cfg, Pdb = None, Seq = None, Model = None, Prefix = 'ncos'):
+        if Verbose: print 'Creating a NCOS protein object...'
         # set Prefix
         self.Prefix = Prefix
         # has special torsion potentials
@@ -37,14 +36,11 @@ class ProteinNCOS(object):
         # sequence book-keeping
         if Seq is None:
             # internal proteinclass object
-            self.p0 = protein.ProteinClass(Pdb)
+            self.p0 = protein.ProteinClass(Pdb, Model = Model)
             self.Seq = self.p0.Seq
             self.Pos = self.p0.Pos
-            # get PdbName
-            self.PdbName = Pdb.split('/')[-1].split('.pdb')[0]
         else:
             self.Seq = Seq
-            self.PdbName = None
             self.Pos = None
         self.ResTypes = list(set(self.Seq))
         self.NRes = len(self.Seq)
@@ -111,6 +107,12 @@ class ProteinNCOS(object):
             # add to master list
             self.BondPairs.extend(BondPairs)
     
+    def BondNativeContacts(self, ContactDict):
+        if Verbose: print 'Bonding sidechains of native contacts for applying harmonic restraints'
+        SInds = self.GetSInds()
+        for i,j in ContactDict['c_native']:
+            self.BondPairs.append( (SInds[i], SInds[j]) ) 
+    
     def GetBBInds(self, ResNums = None):
 	''' extract the backbone indices of the structure'''
 	BBInds = []
@@ -157,45 +159,6 @@ class ProteinNCOS(object):
                 dsq = np.sum(d_ij * d_ij)
                 if dsq <= ResRadius * ResRadius: ResContactList.append( (i,j) )
         return ResContactList
-
-    def Map2Polymer(self, PolyName, AAPdb = None, EneMin = False, DelTempPdb = True):
-        ''' maps the given Pdb to a polymer of equivalent length 
-        and returns a coarse grained protein obj for the mapped polymer
-        Energy minimization not yet implemented'''
-        import map
-        # read in unmapped Pdb
-        if AAPdb is None: AAPdb = os.path.join(NATIVEPATH['Unmapped'], self.PdbName + '.pdb')
-        p_AA = protein.ProteinClass(AAPdb)
-        p_AA = protein.ProteinClass(AAPdb)
-        # map the polymer to this sequence
-        p_AA = p_AA.Decap()
-        NewSeq = [PolyName] * len(p_AA.Seq)
-        p_AA = p_AA.MutateSeq(NewSeq)
-        p_AA = p_AA.Cap() # add ACE and NME caps, else Amber starts yelling
-        NewAAPdb = 'tmpAA.pdb'
-        p_AA.WritePdb(NewAAPdb)
-        if Verbose: print 'Mapping native structure to %s-%s' % (PolyName, len(NewSeq))
-        # energy minimize this pdb
-        RunPath = os.path.join(os.getcwd(), 'AmberEneMin')
-        if EneMin:
-            if Verbose: print 'Energy minimizing the mapped AA polymer...'
-            mdsim.RunDflts['MODEL']= 'ff96glghs'
-            x = mdsim.SimClass(RunPath)
-            x.SysInitPdb(NewAAPdb)
-            x.SysBuild()
-            x.RunMin(500, 500) # 1000 total min steps
-            os.remove(NewAAPdb)
-            NewAAPdb = os.path.join(RunPath, 'current.pdb')
-        # coarse grain this pdb
-        NewCGPdb = 'tmpCG.pdb'
-        map.Map(InPdb = NewAAPdb, CGPrefix = NewCGPdb.split('.pdb')[0], hasPseudoGLY = self.hasPseudoGLY)
-        # read in the cg ProteinNCOS object
-        p_New = self.__class__(Pdb = NewCGPdb, cfg = self.cfg)
-        # delete temp files
-        for i in [NewAAPdb, NewCGPdb]: os.remove(i)
-        if os.path.isdir(RunPath): os.system('rm -r ' + RunPath)
-        return p_New
-
     
 
 def MakeSys(p, cfg = None, NMols = 1):

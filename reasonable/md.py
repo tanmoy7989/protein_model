@@ -9,7 +9,7 @@ import os, numpy as np
 import sim, protein
 import pickleTraj
 
-import map
+import topo, mapNCOS
 from const import *
 
 Verbose = True
@@ -17,7 +17,7 @@ Verbose = True
 # LAMMPS settings
 sim.srel.optimizetrajlammps.useREMD = True
 sim.export.lammps.InnerCutoff = 0.02
-sim.export.lammps.MaxPairEnekBT = 20 # increased from 20 kT to prevent crashes
+sim.export.lammps.MaxPairEnekBT = MaxLammpsPairEnekBT
 
 class REMD(object):
     ''' runs REMD and multiplexes trajectories according to temperature using LAMMPS
@@ -60,14 +60,15 @@ class REMD(object):
         tmpPdb = os.path.join(os.getcwd(), 'tmp.pdb')
         if self.InitPdb is None: self.InitPdb = 'init.pdb'
         if not os.path.isfile(self.InitPdb):
-            if Verbose: print 'Generating fully extended initial structure...'
+            if Verbose: print 'Generating fully extended initial AA structure...'
             # create an ALL-ATOM protein class object for the given sequence
             pobj = protein.ProteinClass(Seq = self.p.Seq)
-            pobj.Dehydrogen()
-            pobj = pobj.Decap()
             pobj.WritePdb(tmpPdb)
             # coarse grain all-atom proteinclass object
-            map.Map(InPdb = tmpPdb, CGPrefix = self.InitPdb.split('.')[0], hasPseudoGLY = self.p.hasPseudoGLY)
+            mapNCOS.Map(InPdb = tmpPdb, CGPrefix = self.InitPdb.split('.pdb')[0], hasPseudoGLY = self.p.hasPseudoGLY)
+            # map to polymer
+            if self.cfg.Map2Polymer:
+                mapNCOS.Map2Polymer(Pdb = self.InitPdb, PolyName = self.cfg.PolyName, AAPdb = tmpPdb, hasPseudoGLY = self.p.hasPseudoGLY, MappedPrefix = self.InitPdb.split('.pdb')[0])
             # remove all-atom pdb
             if os.path.isfile(tmpPdb): os.remove(tmpPdb)
             del pobj

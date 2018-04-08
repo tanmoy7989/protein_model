@@ -7,7 +7,7 @@ import numpy as np
 import protein
 
 from const import *
-import topo, bb, bb_s, ss
+import topo, bb, bb_s, ss, mapNCOS
 import parsestruct as ps
 
 Verbose = True
@@ -17,7 +17,7 @@ def Preamble(s = None):
         s = '''
 ================================================================================================
 (R)elative (E)ntropy (A)ssisted, (S)tructure (O)ptimized, (N)o (A)dded (B)ioinformatic (LE)xicon
-================================================================================================ \n
+================================================================================================
 '''
     return s
 
@@ -86,23 +86,30 @@ def CheckSys(p, Sys, cfg):
 def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # create system topology
+    print '\n'
     p = topo.ProteinNCOS(Seq = Seq, cfg = cfg, Prefix = Prefix)
     # ensure that siechains are referenced according to residue name
     cfg.SSRefType = 'name'
+    print '\n'
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
+    print '\n'
     BB = bb.P_Backbone(p, Sys, cfg)
     ff.extend(BB.BB_0())
     # create backbone-sidechain potentials
+    print '\n'
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
     # 1-alphabet bonded potentials
+    print '\n'
     cfg.Bonded_NCOSType = 1
     ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
+    print '\n'
     if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
     if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials (1-alphabet)
+    print '\n'
     SS = ss.P_Sidechain(p, Sys, cfg)
     ff.extend(SS.SS_1())
     # populate forcefield
@@ -110,44 +117,122 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     # set up other system properties
     PrepSys(Sys, TempSet = TempSet)
     # compile
-    if Verbose: print 'Compiling model...'
+    if Verbose: print '\nCompiling model...'
+    Sys.Load()
+    return Sys
+
+
+def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
+    print Preamble()
+    # map NativePdb to polymer
+    if cfg.Map2Polymer:
+        print '\n'
+        PdbName = NativePdb.split('/')[-1].split('.pdb')[0]
+        AAPdb = os.path.join(NATIVEPATH['Unmapped'], PdbName + '.pdb')
+        MappedPdb = mapNCOS.Map2Polymer(Pdb = NativePdb, PolyName = cfg.PolyName, AAPdb = AAPdb, hasPseudoGLY = cfg.hasPseudoGLY()) 
+    # ensure that sidechains are referenced according to residue number
+    cfg.SSRefType = 'number'
+    # create system topology
+    print '\n'
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    # parse native struct for native contacts in given pdb
+    print '\n'
+    ContactDict = ps.ParsePdb(p)
+    # using these native contacts get distances between contact sidechains in the polymer-mapped Pdb
+    if cfg.Map2Polymer:
+        print '\n'
+        print 'Repopulating native contact database with intra-sidechain distances from %s mapped sequence' % cfg.PolyName.upper()
+        p_Mapped = topo.ProteinNCOS(Pdb = MappedPdb, cfg = cfg, Prefix = Prefix + '_map2%s' % cfg.PolyName.lower())
+        MappedContactDict = ps.ParsePdb(p_Mapped, ResContactList = ContactDict['ResContactList'])
+        ContactDict = MappedContactDict
+    # bond sidechains of native contacts for harmonic restraints
+    # must be done prior to creating the Sys object
+    print '\n'
+    p.BondNativeContacts(ContactDict)
+    # create Sys object 
+    print '\n'
+    Sys = topo.MakeSys(p = p, cfg = cfg)
+    ff = []
+    # create backbone potentials
+    BB = bb.P_Backbone(p, Sys, cfg = cfg)
+    print '\n'
+    ff.extend(BB.BB_0())
+    # create backbone-sidechain potentials
+    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
+    # 1-alphabet bonded potentials
+    print '\n'
+    cfg.Bonded_NCOSType = 1
+    ff.extend(BB_S.BB_S_Bonded_1())
+    # constant repulsive nonbonded potentials
+    print '\n'
+    cfg.NCOSType = 2
+    ff.extend(BB_S.BB_S_2())
+    # create sidechain-sidechain potentials
+    print '\n'
+    SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
+    # harmonic restraints between native contacts
+    print '\n'
+    cfg.NativeType = 2
+    ff.extend(SS.Go_native_2(FConst = cfg.NativeFConst, HarmonicFluct = cfg.NativeHarmonicFluct))
+    # populate forcefield
+    Sys.ForceField.extend(ff)
+    # set up other system properties
+    PrepSys(Sys, TempSet = TempSet)
+    # compile
+    if Verbose: print '\nCompiling model...'
     Sys.Load()
     return p, Sys
-
+    
+    
 def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # ensure that sidechains are referenced according to residue number
     cfg.SSRefType = 'number'
     # create system topology
-    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix) 
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    # parse native struct for native contacts in given pdb
+    print '\n'
+    ContactDict = ps.ParsePdb(p)
+    # map to polymer
+    print '\n'
+    if cfg.Map2Polymer:
+        p_New = p.Map2Polymer(PolyName = cfg.PolyName)
+        # force re-calculation of native contact distances using the same native contacts
+        ContactDict_New = ps.ParsePdb(p_New, ResContactList = ContactDict['ResContactList'])
+        ContactDict = ContactDict_New
+    # bond sidechains of native contacts for harmonic restraints
+    # must be done prior to creating the Sys object
+    print '\n'
+    if cfg.NativeType == 2: p.BondNativeContacts(ContactDict)
+    # create Sys object 
+    print '\n'
     Sys = topo.MakeSys(p = p, cfg = cfg)
     ff = []
     # create backbone potentials
     BB = bb.P_Backbone(p, Sys, cfg = cfg)
+    print '\n'
     ff.extend(BB.BB_0())
     # create backbone-sidechain potentials
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
     # 1-alphabet bonded potentials
     cfg.Bonded_NCOSType = 1
+    print '\n'
     ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
+    print '\n'
     if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
     if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials
-    # parse native struct
-    ContactDict = ps.ParsePdb(p)
-    # map to polymer
-    if cfg.Map2Polymer:
-        MappedContactDict = ps.Map2Polymer(p = p, PolyName = cfg.PolyName, ContactDict = ContactDict)
-        ContactDict = MappedContactDict
     SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
     # native contacts
+    print '\n'
     if cfg.NativeType == 0: ff.extend(SS.Go_native_0(Cut = cfg.NativeCut)) #TODO: think about arguments to this
     if cfg.NativeType == 1: ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
     if cfg.NativeType == 2: ff.extend(SS.Go_native_2(FConst = cfg.NativeFConst, HarmonicFluct = cfg.NativeHarmonicFluct))
     # non-native contacts
     # Note: the non-native cutoff needs to be supplied carefully to be compatible
     # as a WCA with the supplied sigma
+    print '\n'
     if cfg.NonNativeType == 0: ff.extend(SS.Go_nonnative_0())
     if cfg.NonNativeType == 1: ff.extend(SS.Go_nonnative_1()) #TODO: think about how to update this cutoff
     # populate forcefield
@@ -155,7 +240,7 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     # set up other system properties
     PrepSys(Sys, TempSet = TempSet)
     # compile
-    if Verbose: print 'Compiling model...'
+    if Verbose: print '\nCompiling model...'
     Sys.Load()
     return p, Sys
 

@@ -11,13 +11,16 @@ from const import *
 
 Verbose = True
 
-def ParsePdb(p):
+def ParsePdb(p, ResContactList = None):
     ''' must be supplied a cg protein object that is linked to a Pdb
-    assumes that sidechains are referenced by residue number'''
+    assumes that sidechains are referenced by residue number
+    Can supply a ResContactList to force using those native contacts'''
     if Verbose: print 'Parsing native structure...'
+    if not ResContactList is None:
+        if Verbose: print ' Not calculating ResContactList. Using supplied.'
     ResPos = p.GetResPos()
     Pos = p.Pos
-    ResContactList = p.p0.ResContactList()
+    if ResContactList is None: ResContactList = p.GetResContactList()
     SInds = p.GetSInds()
     c_native = []
     d_native = []
@@ -142,54 +145,6 @@ def makeMatrix(p, ContactDict, Sys):
         Topo2AID_NonNative[ (i,j) ] = (m, n)
     return NativePairs, NonNativePairs, Topo2AID_Native, Topo2AID_NonNative
 
-def ErodeNativeContact(ContactDict, Frac = 1.0):
-    pass
-
-def Map2Polymer(p, PolyName, ContactDict, AAPdb = None, ReCalcContacts = False, EneMin = False):
-    # extract Pdb mapped object
-    p_New = p.Map2Polymer(PolyName = PolyName, AAPdb = AAPdb, EneMin = EneMin)
-    # recalculate contacts
-    if ReCalcContacts:
-        ret = ParsePdb(p_New)
-    else:
-        ResPos_New = p_New.GetResPos()
-        Pos_New = p_New.Pos
-        SInds = p.GetSInds()
-        d_native = []
-        d_ss_native = []
-        d_nonnative = []
-        d_ss_nonnative = []
-        # native contacts
-        for k, (i,j) in enumerate(ContactDict['c_native']):
-            m = SInds[i]
-            n = SInds[j]
-            # get com distance between residues
-            d_com_ij = ResPos_New[j] - ResPos_New[i]
-            d_native.append( np.sqrt(np.sum(d_com_ij * d_com_ij)) )
-            # get sidechain distance between residues
-            d_ss_mn = Pos_New[n] - Pos_New[m]
-            d_ss_native.append( np.sqrt(np.sum(d_ss_mn * d_ss_mn)) )
-        # non-native contacts
-        for k, (i,j) in enumerate(ContactDict['c_nonnative']):
-            m = SInds[i]
-            n = SInds[j]
-            # get com distance between residues
-            d_com_ij = ResPos_New[j] - ResPos_New[i]
-            d_nonnative.append( np.sqrt(np.sum(d_com_ij * d_com_ij)) )
-            # get sidechain distance between residues
-            d_ss_mn = Pos_New[n] - Pos_New[m]
-            d_ss_nonnative.append( np.sqrt(np.sum(d_ss_mn * d_ss_mn)) )
-        d_native = np.array(d_native)
-        d_ss_native = np.array(d_ss_native)
-        d_nonnative = np.array(d_nonnative)
-        d_ss_nonnative = np.array(d_ss_nonnative)
-        ret = copy.copy(ContactDict)
-        ret['d_native' ] = d_native
-        ret['d_ss_native'] = d_ss_native
-        ret['d_nonnative'] = d_nonnative
-        ret['d_ss_nonnative'] = d_ss_nonnative
-    return ret
-            
             
 
     

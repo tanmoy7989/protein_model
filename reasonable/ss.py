@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import copy
 import sim
 from const import *
 import parsestruct as ps
@@ -37,7 +38,7 @@ class P_Sidechain(object):
         # make native contact-filters if contactdict is supplied
         self.ContactDict = ContactDict
         if not self.ContactDict is None:
-            NativePairs, NonNativePairs, Topo2AID_Native, Topo2AID_NonNative = ps.makeMatrix(self.p, ContactDict, self.Sys)
+            NativePairs, NonNativePairs, Topo2AID_Native, Topo2AID_NonNative = ps.makeMatrix(self.p, self.ContactDict, self.Sys)
             self.NativePairs = NativePairs
             self.NonNativePairs = NonNativePairs
             self.Topo2AID_Native = Topo2AID_Native
@@ -108,7 +109,7 @@ class P_Sidechain(object):
 
     def Go_native_2(self, FConst = None, HarmonicFluct = None):
         '''1 alphabet Go like nonbonded native sidechain-sidechain harmonic restraints'''
-        if Verbose: print 'Generating sidechain-sidechain nonbonded harmonic restraints between native contacts'
+        if Verbose: print 'Generating sidechain-sidechain bonded harmonic restraints between native contacts'
         # determine harmonic fluct first
         if HarmonicFluct is None: HarmonicFluct = self.cfg.NativeHarmonicFluct
         # now determine force constant
@@ -118,16 +119,19 @@ class P_Sidechain(object):
         P = []
         for k, (i,j) in enumerate(self.ContactDict['c_native']):
             # ignore residue pairs not included in Topo2AID, while making filters
+            # this ignores glycines if they are not included as pseudo side chains
             if not self.Topo2AID_Native.__contains__( (i,j) ): continue
             if Verbose: print ' Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], self.ContactDict['d_ss_native'][k])
             m, n = self.Topo2AID_Native[(i,j)]
+            # create filters
             NAID = self.Sys.World.NAID
             this_NativePair = np.zeros([NAID, NAID], int)
             this_NativePair[m,n] = 1
             this_NativePair[n,m] = 1
             this_d0 = self.ContactDict['d_ss_native'][k]
-            this_Filter = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = this_NativePair, MinBondOrd = self.MinBondOrd)
-            this_P = sim.potential.Bond(self.Sys, FConst = FConst, Dist0 = this_d0, Filter = this_Filter, Label = 'NonBondNative_%d_%d' % (i,j))
+            this_Filter = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = this_NativePair, Bonded = True)
+            # create native bonded potential
+            this_P = sim.potential.Bond(self.Sys, FConst = FConst, Dist0 = this_d0, Filter = this_Filter, Label = 'Restraint_%d_%d' % (i,j))
             P.append(this_P)
         # populate
         ff = P
