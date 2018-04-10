@@ -8,8 +8,6 @@ import sim, protein
 import pickleTraj
 from const import *
 
-Verbose = True
-
 # settings
 sim.srel.optimizetrajlammps.useREMD = True
 sim.export.lammps.InnerCutoff = 0.02
@@ -73,10 +71,13 @@ class Srel(object):
         # treat inner core (don't do this for frozen potentials)
         print '\nTreating inner core for nonbonded spline potentials...'
         for P in self.Sys.ForceField:
-            if P.Name.startswith("NonBond") and P.Names.__contains__('spline') and not self.isPermaFrost(P):
+            # turn off constraints for PermaFrost potentials
+            if self.isPermaFrost(P) and P.IsSpline: P.ConstrainSpline = False
+            # apply constraints to all other potentials
+            if P.Name.startswith("NonBond") and P.IsSpline and not self.isPermaFrost(P):
                 P.EneInner = "20kT"
                 P.EneSlopeInner = None
-        # optimizer initialization
+        # optimizer initialization (constraining all splines)
         print 'Starting Srel optimization for polypeptide...'
         Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         Opt = sim.srel.UseLammps(Opt)
@@ -143,8 +144,23 @@ class Srel(object):
 
     def runGoSrel(self, OptNonNative = False):
         '''optimize Go potentials with a fixed backbone and a traj'''
+        # turn off spline constraints for all backbone potentials
+        OptSet = ['NonBondNative'] if not OptNonNative else ['NonBondNative', 'NonBondNonNative']
+        print '\nTurning off constraints for backbone potentials...'
+        for P in self.Sys.ForceField:
+            if not P.IsSpline: continue
+            if not OptSet.__contains__(P.Name):
+                P.ConstrainSpline = False
+            else:
+                print 'Constraining potential: %s' % P.Name
+        # treat inner core (don't do this for frozen potentials)
+        print 'Treating inner core for spline Go potentials...'
+        for P in self.Sys.ForceField:
+            if ["NonBondNative", "NonBondNonNative"].__contains__(P.Name) and P.IsSpline and not self.isPermaFrost(P):
+                P.EneInner = "20kT"
+                P.EneSlopeInner = None
         # set up optimizer object
-        print 'Starting Srel optimization for Go model...'
+        print '\nStarting Srel optimization for Go model...'
         Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         Opt = sim.srel.UseLammps(Opt)
         Opt.TempFileDir = os.getcwd()
@@ -157,10 +173,8 @@ class Srel(object):
         Opt.Iter = 0
         if not OptNonNative:
             print 'Optimizing only native Go interactions...'
-            OptSet = ['NonBondNative']
         else:
             print 'Optimizing ALL Go interactions...'
-            OptSet = ['NonBondNative', 'NonBondNonNative']
         for P in self.Sys.ForceField: P.FreezeParam()
         for P in self.Sys.ForceField:
             if OptSet.__contains__(P.Name) and not self.isPermaFrost(P):
