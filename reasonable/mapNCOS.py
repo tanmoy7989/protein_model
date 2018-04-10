@@ -213,6 +213,20 @@ def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, 
         PdbName = Pdb.split('/')[-1].split('.pdb')[0]
         MappedPdb = os.path.join(os.getcwd(), PdbName + '_map2%s.pdb' % PolyName.lower())
     p_CG.WritePdb(MappedPdb)
+    # copy over CONECT records if present
+    s = ''
+    with open(Pdb, 'r') as of: lines = of.readlines()
+    try:
+        start = [lines.index(line) for line in lines if line.startswith('CONECT')][0]
+        stop = len(lines)
+        s = ''.join(lines[start:stop])
+    except ValueError:
+        s = ''
+    s0 = file(MappedPdb, 'r').read()
+    if s:
+        s0 += '\n'
+        s0 += s
+    file(MappedPdb, 'w').write(s0)
     # del temp files
     if DelTmpPdb:
         for i in [PolyAAPdb, PolyCGPdb]: os.remove(i)
@@ -221,17 +235,29 @@ def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, 
 
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
-    HelpStr = '''python ~/protein_model/reasonable/map.py InPdb CGPrefix [hasPseudoGLY] [AATraj] [PrmTop] [AmberEne] [LastNFrames]'''
+    HelpStr = '''
+python ~/protein_model/reasonable/mapNCOS.py map InPdb CGPrefix [hasPseudoGLY] [AATraj] [PrmTop] [AmberEne] [LastNFrames]
+OR
+python ~/protein_model/reasonable/mapNCOS.py map2poly InCGPdb Prefix AAPdb PolyName [hasPseudoGLY]
+'''
     if len(sys.argv) == 1:
         print HelpStr
         exit()
+    if sys.argv[1] == 'map':
+        InPdb = os.path.abspath(sys.argv[2])
+        CGPrefix = os.path.abspath(sys.argv[3])
+        hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+        AATraj = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 else None
+        PrmTop = os.path.abspath(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else None
+        AmberEne = os.path.abspath(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[7] else None
+        LastNFrames = int(sys.argv[8]) if len(sys.argv) > 8 else 0
+        Map(InPdb = InPdb, CGPrefix = CGPrefix, AATraj = AATraj, PrmTop = PrmTop, AmberEne = AmberEne, LastNFrames = LastNFrames, hasPseudoGLY = hasPseudoGLY)
 
-    InPdb = os.path.abspath(sys.argv[1])
-    CGPrefix = os.path.abspath(sys.argv[2])
-    hasPseudoGLY = int(sys.argv[3]) if len(sys.argv) > 3 else 0
-    AATraj = os.path.abspath(sys.argv[4]) if len(sys.argv) > 4 else None
-    PrmTop = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else None
-    AmberEne = os.path.abspath(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else None
-    LastNFrames = int(sys.argv[7]) if len(sys.argv) > 7 else 0
+    if sys.argv[1] == 'map2poly':
+        InCGPdb = os.path.abspath(sys.argv[2])
+        MappedPrefix = os.path.abspath(sys.argv[3])
+        AAPdb = os.path.abspath(sys.argv[4])
+        PolyName = sys.argv[5]
+        hasPseudoGLY = int(sys.argv[6]) if len(sys.argv) > 6 else 0
+        Map2Polymer(Pdb = InCGPdb, PolyName = PolyName.upper(), AAPdb = AAPdb, MappedPrefix = MappedPrefix, hasPseudoGLY = hasPseudoGLY)
 
-    Map(InPdb = InPdb, CGPrefix = CGPrefix, AATraj = AATraj, PrmTop = PrmTop, AmberEne = AmberEne, LastNFrames = LastNFrames, hasPseudoGLY = hasPseudoGLY)
