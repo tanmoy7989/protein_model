@@ -10,13 +10,13 @@
 '''
 
 #!/usr/bin/env python
-import os, sys, copy, numpy as np, string
+import os, sys, copy, numpy as np
 import protein
 import topo
 
 genBonds = 2 # 0 for no bonds, 1 for only BB bonds, 2 for all
 
-NCaps = ['ACE']
+NCaps = ['ACE', 'NH2']
 CCaps = ['NME', 'NHE', 'NH2']
 PDBFMT = "ATOM  %5d %4s %3s %1s%4d    %8.3f%8.3f%8.3f %5.2f%6.2f"        # (atomind + 1, atomname, resname, reschainind, resnum+1, x, y, z)
 BONDFMT = "%6s%5d%5d\n"                                                  # ('CONECT', a + r.StartAtom + 1, b + r.StartAtom + 1)
@@ -51,7 +51,7 @@ def AddH_GLY(p):
             p.TemplateBonds()
     return
 
-def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFrames = 0, hasPseudoGLY = True, NChains = 1):
+def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFrames = 0, hasPseudoGLY = True):
     ''' Maps an all-atom pdb to a CG N-C-O-S version. If pseudo GLY side chains are requested,
     automatically hydrogenates GLY residues that don't have alpha hydrogens'''
     if hasPseudoGLY:
@@ -64,7 +64,6 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
     # extract the all-atom pdb string
     PdbString = p.GetPdb()
     Pos = p.Pos
-    Seq = p.Seq
     # is this structure capped (# adapdted from /share/apps/pdbtools.py)
     NCap = [s for s in PdbString.split("\n") if s[0:4]=="ATOM" and s[17:20] in NCaps]
     CCap = [s for s in PdbString.split("\n") if s[0:4]=="ATOM" and s[17:20] in CCaps]
@@ -80,7 +79,7 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
     else:
         NCGAtoms = 4 * len(Seq)
     # Masks
-    DecapFilter = lambda ResName, AtomName : not ( (NCaps + CCaps).__contains__(ResName) )    
+    DecapFilter = lambda ResName, AtomName : not ( (NCaps + CCaps).__contains__(ResName) )
     SFilter_Other = lambda ResName, AtomName : not (AtomName == 'N' or AtomName == 'CA' or AtomName == 'C' or AtomName == 'O' or AtomName.__contains__('H'))
     SFilter_GLY = lambda ResName, AtomName: (ResName == 'GLY' and AtomName.__contains__('HA'))
     # Parse atom indices based on masks
@@ -101,38 +100,31 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
         else:
             SInds[i] = p.AtomInd(ResNum = startres + i, UserFunc = DecapFilter and SFilter_Other)
     # Write Masks to a Map and final CG atoms to CG PDB
-    CurrentChain = -1    
     s = ''
     s_bond = ''
     MapDict = dict( (i, []) for i in range(NCGAtoms) )
     n = 0
     for i, r in enumerate(Seq):
-        # determine if a new chain starts here
-        thisChain = p.ResChain(i)
-        if not thisChain == CurrentChain:
-            if not i == 0: s +=  "TER\n" # inter-chain TER records
-        # N lines (do not bond when starting a new chain)
-        if thisChain == CurrentChain:
+        # N lines
+        if not i == 0:
             if Seq[i-1] == 'GLY' and not hasPseudoGLY: s_bond += BONDFMT % ('CONECT', n, n+1)
             else: s_bond += BONDFMT % ('CONECT', n-1, n+1)
         N_CGInd = n ; n+= 1
         MapDict[N_CGInd].append(NInds[i])
-        s += PDBFMT % (N_CGInd+1, 'N  ', r, string.ascii_uppercase[thisChain], i+1, Pos[NInds[i], 0], Pos[NInds[i], 1], Pos[NInds[i], 2], 1.0, 0.0)
+        s += PDBFMT % (N_CGInd+1, 'N  ', r, ' ', i+1, Pos[NInds[i], 0], Pos[NInds[i], 1], Pos[NInds[i], 2], 1.0, 0.0)
         s += "\n"
-        # now update chains
-        CurrentChain = thisChain
         # C lines
         s_bond += BONDFMT % ('CONECT', n, n+1)
         C_CGInd = n ; n+= 1
         MapDict[C_CGInd].append(CAInds[i])
-        s += PDBFMT % (C_CGInd+1, 'C  ', r, string.ascii_uppercase[thisChain], i+1, Pos[CAInds[i], 0], Pos[CAInds[i] ,1], Pos[CAInds[i] ,2], 1.0, 0.0)
+        s += PDBFMT % (C_CGInd+1, 'C  ', r, ' ', i+1, Pos[CAInds[i], 0], Pos[CAInds[i] ,1], Pos[CAInds[i] ,2], 1.0, 0.0)
         s += "\n"
         # O lines
         s_bond += BONDFMT % ('CONECT', n, n+1)
         O_CGInd = n; n+=1
         MapDict[O_CGInd].extend([ CInds[i], OInds[i] ])
         COMPos = (Pos[CInds[i]] + Pos[OInds[i]]) / 2.
-        s += PDBFMT % (O_CGInd+1, 'O  ', r, string.ascii_uppercase[thisChain], i+1, COMPos[0], COMPos[1], COMPos[2], 1.0, 0.0)
+        s += PDBFMT % (O_CGInd+1, 'O  ', r, ' ', i+1, COMPos[0], COMPos[1], COMPos[2], 1.0, 0.0)
         s += "\n"
         # S lines
         if not r == 'GLY' or hasPseudoGLY:
@@ -141,10 +133,10 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
             S_CGInd = n; n+= 1
             MapDict[S_CGInd].extend(SInds[i])
             COMPos = np.mean(Pos[SInds[i]], axis = 0)
-            s += PDBFMT % (S_CGInd+1, 'S  ', r, string.ascii_uppercase[thisChain], i+1, COMPos[0], COMPos[1], COMPos[2], 1.0, 0.0)
+            s += PDBFMT % (S_CGInd+1, 'S  ', r, ' ', i+1, COMPos[0], COMPos[1], COMPos[2], 1.0, 0.0)
             s += "\n"
     # Write CG PDB
-    s += "TER\n" # last TER record
+    s += "TER\n"
     if genBonds: s += s_bond
     OutPdb = CGPrefix + '.pdb'
     with open(OutPdb, 'w') as of: of.write(s)
