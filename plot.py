@@ -263,7 +263,7 @@ def PlotContactOrder(DataDir, Prefix = None):
 
 
 ######## MAIN ########
-HELPSTR = '''USAGE: python ~/protein_model/plot.py pset_type OutDir hasPseudoGLY (0 or 1)'''
+HELPSTR = '''USAGE: python ~/protein_model/plot.py pset_type OutDir [hasPseudoGLY] (default 0)'''
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print HELPSTR
