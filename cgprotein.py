@@ -70,6 +70,9 @@ class ProteinNCOS(object):
         self.AtomNames = self.__p.AtomNames()
         self.AtomRes = self.__p.AtomRes()
         self.AtomResNum = self.__p.AtomResNum
+        self.ChainResNums = self.__p.ChainResNums
+        self.ChainAtomNums = self.__p.ChainAtomNums
+        self.Chains = self.__p.Chains
         # sequence manipulation
         self.UpdateSeq()
         # set atom start indices
@@ -81,6 +84,15 @@ class ProteinNCOS(object):
         # Co-ordinates manipulation
         self.Pos = None
         self.UpdatePos()
+        # chains
+        self.NChains = len(self.ChainResNums) - 1
+        if self.NChains == 1:
+            self.AtomChain = [' '] * len(self.AtomNames)
+        else:
+            self.AtomChain = []
+        for i, chain in enumerate(self.Chains):
+            n = len(range(self.ChainAtomNums[i], self.ChainAtomNums[i+1]))
+            self.AtomChain.extend( [chain] * n)
         
     def UpdateSeq(self):
         # updates sequence and residue type counts
@@ -101,7 +113,12 @@ class ProteinNCOS(object):
         self.ResPos = self.__p.ResPos()
         self.Pos = Pos
         self.BBPos = self.GetBBPosSlice()
-    
+   
+    def ReimageChain(self, BoxL = np.zeros(3)):
+        # reimages every atom in a chain such that
+        # atom i+1 is reimaged w.r.t atom i
+        return lib.reimagechain(pos = self.Pos, boxl = BoxL)
+
     def GetStartInds(self):
         # don't let this get calculated twice
         if len(self.StartInds) == self.NRes: return
@@ -138,6 +155,7 @@ class ProteinNCOS(object):
         return ContactMap, ContactDist
     
     def GetCO(self, ContactMap = None, BoxL = np.zeros(3)):
+        # not sure if defined for an oligomer
         if ContactMap is None:
             ContactMap, ContactDist = self.GetResContacts(BoxL = BoxL) 
         L = self.NRes # chain length
@@ -149,12 +167,12 @@ class ProteinNCOS(object):
         return CO
             
     def Rg(self, BoxL = np.zeros(3), BB = False):
-        # calculates overall Rg
+        # calculates overall Rg (of the entire oligomer when appropriate)
         Pos = self.Pos if not BB else self.BBPos
         return lib.rg_frame(pos = Pos, boxl = BoxL)
     
     def REE(self, BoxL = np.zeros(3), BB = True):
-        # calculates end-to-end distance along backbone
+        # calculates end-to-end distance along backbone (of the entire oligomer when appropriate)
         # setting BB = False would be bizarre
         Pos = self.Pos if not BB else self.BBPos
         return lib.ree_frame(pos = self.BBPos, boxl = BoxL) 
@@ -210,13 +228,14 @@ class ProteinNCOS(object):
             rmsd_restype[r] /= float(self.ResCount[r])
         return rmsd_restype
     
-    def GetPhiPsi(self, ResNums = None):
+    def GetPhiPsi(self, ResNums = None, BoxL = np.zeros(3)):
         if ResNums is None: ResNums = range(self.NRes)
-        # exclude terminal residues
-        if ResNums.__contains__(0): ResNums.remove(0)
-        if ResNums.__contains__(self.NRes-1): ResNums.remove(self.NRes-1)
+        # exclude residues at chain termini
+        for i in self.ChainResNums:
+            if ResNums.__contains__(i): ResNums.remove(i)
         # get the entire backbone pos coordinates
         BBPos = self.GetBBPosSlice()
+        BBPos = self.ReimageChain(BBPos, BoxL = BoxL)
         Phi = np.zeros(len(ResNums))
         Psi = np.zeros(len(ResNums))
         for i, r in enumerate(ResNums):
@@ -260,6 +279,7 @@ class Compute(object):
             self.Trj = pickleTraj(self.TrajFn)
             self.FrameRange = range(0, len(self.Trj), StepFreq)
             self.NFrames = len(self.FrameRange)
+            self.BoxL = self.Trj.FrameData.get('BoxL', np.zeros(3))
         # record temp
         if not Temp is None:
             self.Temp = Temp
@@ -276,6 +296,7 @@ class Compute(object):
             self.Trj = pickleTraj(self.TrajFn)
             self.FrameRange = range(0, len(self.Trj), StepFreq)
             self.NFrames = len(self.FrameRange)
+            self.BoxL = self.Trj.FrameData.get('BoxL', np.zeros(3))
     
     def Rg_frame(self):
         # per frame Rg calculator
@@ -285,7 +306,7 @@ class Compute(object):
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
-            rg_frame[i] = self.p.Rg()
+            rg_frame[i] = self.p.Rg(BoxL = self.BoxL)
             pb.Update(i)
         return rg_frame
     
@@ -297,7 +318,7 @@ class Compute(object):
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
-            ree_frame[i] = self.p.REE()
+            ree_frame[i] = self.p.REE(Boxl = self.BoxL)
             pb.Update(i)
         return ree_frame
             
@@ -319,7 +340,6 @@ class Compute(object):
         # and those calculations need not be saved to a pickle
         picklename = FMT['RESCONTACTS'] % (self.Prefix, self.Temp)
         if os.path.isfile(picklename) and not self.Recompute: return
-        BoxL = self.Trj.FrameData['BoxL']
         # loop over frames to get average CG contact distances   
         ContactMap = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
         ContactDist = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
@@ -327,7 +347,7 @@ class Compute(object):
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
-            x, y = self.p.GetResContacts()
+            x, y = self.p.GetResContacts(BoxL = self.BoxL)
             ContactMap[i,:,:] = x
             ContactDist[i,:,:] = y
             pb.Update(i)
@@ -414,7 +434,8 @@ class Compute(object):
                     'AtomNames': self.pNative.AtomNames,
                     'AtomIsProtein': [True]*len(self.pNative.AtomNames),
                     'AtomRes': self.pNative.AtomRes,
-                    'AtomResNum': self.pNative.AtomResNum}
+                    'AtomResNum': self.pNative.AtomResNum,
+                    'AtomChain': self.pNative.AtomChain}
         # write out clust results
         sim.cluster.WriteClustResults(self.Trj, clustret, sumfilename, clustfilename,
                                       HeadVars = HeadVars)
@@ -497,13 +518,14 @@ class Compute(object):
         measure.NBlocks = 1
         picklename = FMT['RAMA'] % (self.Prefix, self.Temp)
         if os.path.isfile(picklename) and not self.Recompute: return
-        Phi = np.zeros([self.NFrames, self.p.NRes-2], np.float64)
-        Psi = np.zeros([self.NFrames, self.p.NRes-2], np.float64)
+        NExcludedAtoms = len(self.pNative.ChainResNums)
+        Phi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
+        Psi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
         pb = sim.utility.ProgressBar('Calculating Phi, Psi at %3.2f K...' % self.Temp, Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
-            Phi[i, :], Psi[i, :] = self.p.GetPhiPsi()
+            Phi[i, :], Psi[i, :] = self.p.GetPhiPsi(BoxL = self.BoxL)
             pb.Update(i)    
         if doRamaProb:
             measure.Normalize = True
