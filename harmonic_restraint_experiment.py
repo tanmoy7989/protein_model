@@ -10,7 +10,7 @@ CURRDIR = os.getcwd()
 RoomTemp = 300.
 
 hasPseudoGLY = True
-map2Polymer = False
+map2Polymer = True
 
 PdbName = sys.argv[1]
 BBType = sys.argv[2]
@@ -41,11 +41,8 @@ MinBondOrd = FFMetadata['MinBondOrd']
 NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
 
-# back-bone, sidechain parameters
-NCOSType = FFMetadata['NCOSType']
-
 # Go parameters
-HarmonicFluct = 1.0 # used to tune the force constant in s-s bias
+HarmonicFluct = 1.0 / np.sqrt(80.) #used to tune the force constant in s-s bias
 PolyName = FFMetadata['PolyName']
 
 # temp schedule
@@ -69,7 +66,8 @@ StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
 mdstr = '''
 #!/usr/bin/env python
 import os, sys, numpy as np, time
-import reasonable as cg, utils
+import utils
+from reasonable import const, config, cgmodel, md
 
 # prefix
 Prefix = "%(PREFIX)s"
@@ -80,26 +78,21 @@ isDone = utils.checkGoREMD(FullPrefix, [%(TEMPSET)3.2f])
 if isDone: exit()
         
 # set up config object
-cfg = cg.config.Config()
+cfg = config.Config()
 
 # pseudo glycine side chain
 hasPseudoGLY = %(HASPSEUDOGLY)d
-if hasPseudoGLY: cfg.AtomS['GLY'] = cg.const.AtomS_GLY
+if hasPseudoGLY: cfg.AtomS['GLY'] = const.AtomS_GLY
 
-# backbone settings
+# backbone settings (assumes single repulsive nonbonded BB-S potential by default)
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
-cfg.NCOSType = %(NCOSTYPE)d
 
 # native contacts
-cfg.NativeType = 2
-cfg.HarmonicFluct = %(HARMONICFLUCT)g
+cfg.NativeHarmonicFluct = %(HARMONICFLUCT)g
 cfg.Map2Polymer = %(MAP2POLYMER)d
 cfg.PolyName = "%(POLYNAME)s"
-
-# dont apply potential between nonnative contacts
-cfg.NonNativeType = -1
 
 # timestep
 cfg.TimeStep = %(TIMESTEP)g
@@ -108,26 +101,28 @@ cfg.TimeStep = %(TIMESTEP)g
 Temps = np.logspace(np.log10(%(TLOW)3.2f), np.log10(%(THIGH)3.2f), %(NREPLICA)d)
        
 # compile Sys object
-p, Sys = cg.cgmodel.makeGoSys(NativePdb = "%(NATIVEPDB)s", cfg = cfg, Prefix = Prefix, TempSet = %(TEMPSET)3.2f)
+p, Sys = cgmodel.makeHarmonicGoSys(NativePdb = "%(NATIVEPDB)s", cfg = cfg, Prefix = Prefix, TempSet = %(TEMPSET)3.2f)
 
 # load backbone forcefield file
-cg.cgmodel.loadParam(Sys, "%(FF_FILE)s")
+cgmodel.loadParam(Sys, "%(FF_FILE)s")
 
 # show the forcefield
 print Sys.ForceField.ParamString()
 
 # compile REMD object
-md = cg.md.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
+remd = md.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
                    NStepsMin = %(NSTEPSMIN)d, NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
                    NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
 
 # run REMD
 t1 = time.time()
-md.runREMD()
+remd.runREMD()
 t2 = time.time()
         
 # reorder by temperature only at room temp
-md.reorderTraj(ReorderTemps = [%(TEMPSET)3.2f] )
+md.Reorder(Temp = [%(TEMPSET)3.2f], Prefix = %(PREFIX)s, TempFile = 'temps.txt', 
+           NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
+           NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
 t3 = time.time()
         
 # print stats
@@ -164,11 +159,10 @@ d1 = {
       'NKNOT'           : NKnot,
       'SPCUT'           : SPCut,
       
-      'NCOSTYPE'        : NCOSType,
-
       'HARMONICFLUCT'   : HarmonicFluct,
 
       'HASPSEUDOGLY'    : hasPseudoGLY,
+      
       'MAP2POLYMER'     : map2Polymer,
       'POLYNAME'        : PolyName,
 
