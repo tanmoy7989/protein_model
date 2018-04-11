@@ -2,10 +2,10 @@
 
 ''' Builds the toplogy of the sim-style Sys object '''
 
-import os, numpy as np, copy
+import os, numpy as np, copy, string
 from const import *
 import sim
-import protein, mdsim
+import protein
 
 Verbose = True
 protein.MinCODflt = MinCO
@@ -33,15 +33,24 @@ class ProteinNCOS(object):
         self.SSRefType = cfg.SSRefType
         # extract the entire config object just in case
         self.cfg = cfg
-        # sequence book-keeping
+        # if a CG Pdb is provided instead of a Seq
         if Seq is None:
             # internal proteinclass object
             self.p0 = protein.ProteinClass(Pdb, Model = Model)
             self.Seq = self.p0.Seq
             self.Pos = self.p0.Pos
+            self.ResChainInds = [self.p0.ResChain(i) for i, r in enumerate(self.Seq)]
+            self.Chains = self.p0.Chains
+            self.NChains = len(self.Chains)
+        # if a Seq is provided
         else:
-            self.Seq = Seq
+            self.Seq = None
             self.Pos = None
+            self.ResChainInds = []
+            self.Chains = []
+            self.NChains = None
+            self.__SetChains(Seq)
+        # sequence book-keeping
         self.ResTypes = list(set(self.Seq))
         self.NRes = len(self.Seq)
         self.NResTypes = len(self.ResTypes)
@@ -51,9 +60,11 @@ class ProteinNCOS(object):
         self.__SetSideChains()
         # build startatoms for quick backbone referencing
         self.StartAtomInds = []
+        self.RelativeStartAtomInds = []
         self.__SetStartAtomInds()
+        self.__SetRelativeStartAtomInds()
         # generate bonds
-        self.BondPairs = []
+        self.BondPairs = None
         self.__SetBonds()
    
     def __repr__(self):
@@ -86,11 +97,40 @@ class ProteinNCOS(object):
             self.StartAtomInds.append(x)
             if self.AtomSbyNum[i] is None: x += 3
             else: x += 4
-        
-    def __SetBonds(self):
-        ''' create a simple bond pair list for sim'''
+    
+    def __SetRelativeStartAtomInds(self):
+        ''' set the index of first atoms for each residue relative to the chain'''
+        x = 0
+        CurrentChain = 0
         for i, r in enumerate(self.Seq):
-            AtomNInd = self.StartAtomInds[i]
+            thisChain = self.ResChainInds[i]
+            # check if transitioning chains and reset the counter
+            if thisChain > CurrentChain:
+                x = 0
+                CurrentChain = thisChain
+            self.RelativeStartAtomInds.append(x)
+            if self.AtomSbyNum[i] is None: x += 3
+            else: x += 4
+
+    def __SetChains(self, Seq):
+        ''' figure out multiple chain related stuff'''
+        self.Seq = []
+        Test = [isinstance(x, list) for x in Seq]
+        if not all(Test): Seq = [Seq]
+        for ii, chain in enumerate(Seq):
+            if len(Seq) > 1: self.Chains.append(string.ascii_uppercase[ii])
+            else: self.Chains.append('')
+            for i, res in enumerate(chain):
+                self.Seq.append(res)
+                self.ResChainInds.append(ii)
+            self.NChains = len(self.Chains)
+    
+    def __SetBonds(self):
+        ''' create a simple bond pair list for sim
+        assumes that Chain information has already been created'''
+        self.BondPairs = [ [] for i in range(self.NChains) ]
+        for i, r in enumerate(self.Seq):
+            AtomNInd = self.RelativeStartAtomInds[i]
             AtomCInd = AtomNInd + 1
             AtomOInd = AtomNInd + 2
             # intra-residue backbone bonds
@@ -100,12 +140,14 @@ class ProteinNCOS(object):
                 # sidechain bonds only for residues whose sidechains are not None
                 AtomSInd = AtomNInd + 3
                 BondPairs.append( (AtomCInd, AtomSInd) )
-            # peptide bond
+            # peptide bond 
             if i < self.NRes - 1:
-                NextAtomNInd = self.StartAtomInds[i+1]
-                BondPairs.append( (AtomOInd, NextAtomNInd) )
+                NextAtomNInd = self.RelativeStartAtomInds[i+1]
+                # prevent inter-chain bonding
+                if NextAtomNInd > AtomNInd: BondPairs.append( (AtomOInd, NextAtomNInd) )
             # add to master list
-            self.BondPairs.extend(BondPairs)
+            ChainInd = self.ResChainInds[i]
+            self.BondPairs[ChainInd].extend(BondPairs)
     
     def BondNativeContacts(self, ContactDict):
         if Verbose: print 'Bonding sidechains of native contacts for applying harmonic restraints'
@@ -168,10 +210,10 @@ def MakeSys(p, cfg = None, NChains = 1):
        cfg is the global config object '''
     if Verbose == True:
         print 'Generating backbone topology...'
-    # generate the molecule
-    AtomList = []
+    # generate the molecule as a list of lists
+    AtomList = [ [] for i in range(p.NChains)]
     s = ' Added side chain atoms by %s: ' % p.SSRefType
-    for i,r in enumerate(p.Seq):
+    for i, r in enumerate(p.Seq):
         # backbone atoms
         if p.hasSpecialBBGLYTorsions:
             if r == 'GLY': res = [AtomN, AtomC_GLY, AtomO]
@@ -194,21 +236,28 @@ def MakeSys(p, cfg = None, NChains = 1):
         else:
             print 'Error: Unknown sidechain reference type, or not implemented yet'
             exit()
-        # add to AtomList 
-        AtomList.extend(res)
-    s += '\n'
+        # figure out correct chain
+        ChainInd = p.ResChainInds[i]
+        # add to AtomList maintaining correct chain
+        AtomList[ChainInd].extend(res)
     if Verbose: print s
-    Mol = sim.chem.MolType(p.Prefix, [i for i in AtomList])
-    # generate bonds
-    for (i,j) in p.BondPairs: Mol.Bond(i,j)
+    # generate the sim-style MolTypes
+    MolList = []
+    for i in range(p.NChains):
+        Mol =  sim.chem.MolType(p.Prefix, [atom for atom in AtomList[i]])
+        # generate bonds for this molecule
+        for (m, n) in p.BondPairs[i]: Mol.Bond(m, n)
+        # populate MolList
+        MolList.append(Mol)
     # create System
-    World = sim.chem.World([Mol], Dim = 3, Units = sim.units.AtomicUnits)
+    World = sim.chem.World(MolList, Dim = 3, Units = sim.units.AtomicUnits)
     Sys = sim.system.System(World, Name = p.Prefix)
-    for i in range(NChains):
-        if NChains > 1:
-            if Verbose: print 'Adding chain %d' % i
+    if p.NChains > 1: print ' Creating oligomer...'
+    # add molecules to the system
+    for i, Mol in enumerate(MolList):
+        if Verbose and p.NChains > 1:
+            print ' Added chain %d' % i
         Sys += Mol.New()
-    #Sys += Mol.New()
     return Sys
 
 
