@@ -110,6 +110,7 @@ png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
         pic0 = OutPrefix + '_tmp0.png'
         pic1 = OutPrefix + '_tmp1.png'
         cmdstr2 = '%s %s -trim -bordercolor white -background white -border 50x50 -quality 100 %s' % (IMAGEMAGICKEXEC, pic0, pic1)
+        os.system(cmdstr2)
         pic = mpimg.imread(pic1)
         fig = plt.figure(figsize = (5,5), facecolor = 'w', edgecolor = 'w')
         ax = fig.add_subplot(1,1,1)
@@ -164,12 +165,13 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
     # 1) help
-    helpstr = 'USAGE: python ~/Go/vis.py NativePdb Pdb [OutPrefix]'
+    helpstr = 'USAGE: python ~/Go/vis.py NativePdb Pdb [OutPrefix] [hasPseudoGLY]'
     if len(sys.argv) < 3: print helpstr
     
     #2) for single protein overlay
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
         NativePdb = os.path.abspath(sys.argv[1])
         Pdb = os.path.abspath(sys.argv[2])
         OutPrefix = os.path.abspath(sys.argv[3])
-        Overlay(NativePdb, Pdb, OutPrefix)
+        hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+        Overlay(NativePdb, Pdb, OutPrefix = OutPrefix, hasPseudoGLY = hasPseudoGLY, SinglePlot = True)

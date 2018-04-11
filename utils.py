@@ -28,7 +28,8 @@ FMT = {
       }
 
 # forcefield types
-BBTYPES = ['ff_leu15_bbs', 'ff_val15_bbs', 'ff_leu15']
+BBTYPES = ['ff_leu15', 'ff_val15', 'ff_leu15_bbs', 'ff_val15_bbs', 'ff_val_leu_bbs',
+           'ff_leu15_bbs_protg_spline', 'ff_val15_bbs_protg_spline']
 GoFFTYPES = [] 
 
 # important master paths and metadata files
