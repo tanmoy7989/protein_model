@@ -161,7 +161,7 @@ class ProteinNCOS(object):
         return ResContactList
     
 
-def MakeSys(p, cfg = None, NMols = 1):
+def MakeSys(p, cfg = None, NChains = 1):
     '''generate the topology for the sim Sys object
        currently implemented for single chains
        p is ProteinNCOS type object
@@ -204,8 +204,11 @@ def MakeSys(p, cfg = None, NMols = 1):
     # create System
     World = sim.chem.World([Mol], Dim = 3, Units = sim.units.AtomicUnits)
     Sys = sim.system.System(World, Name = p.Prefix)
-    #for i in range(NChains): Sys += Mol.New()
-    Sys += Mol.New()
+    for i in range(NChains):
+        if NChains > 1:
+            if Verbose: print 'Adding chain %d' % i
+        Sys += Mol.New()
+    #Sys += Mol.New()
     return Sys
 
 

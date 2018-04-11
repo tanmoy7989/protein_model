@@ -83,7 +83,7 @@ def CheckSys(p, Sys, cfg):
     #TODO:
     pass
 
-def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
+def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp, NChains = 1):
     print Preamble()
     # create system topology
     print '\n'
@@ -91,26 +91,25 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     # ensure that siechains are referenced according to residue name
     cfg.SSRefType = 'name'
     print '\n'
-    Sys = topo.MakeSys(p = p, cfg = cfg)
+    Sys = topo.MakeSys(p = p, cfg = cfg, NChains = NChains)
     ff = []
     # create backbone potentials
-    print '\n'
     BB = bb.P_Backbone(p, Sys, cfg)
+    print '\n'
     ff.extend(BB.BB_0())
     # create backbone-sidechain potentials
-    print '\n'
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
     # 1-alphabet bonded potentials
-    print '\n'
     cfg.Bonded_NCOSType = 1
+    print '\n'
     ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
     print '\n'
-    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
-    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
+    cfg.NCOSType == 2
+    ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials (1-alphabet)
-    print '\n'
     SS = ss.P_Sidechain(p, Sys, cfg)
+    print '\n'
     ff.extend(SS.SS_1())
     # populate forcefield
     Sys.ForceField.extend(ff)
@@ -119,7 +118,7 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp):
     # compile
     if Verbose: print '\nCompiling model...'
     Sys.Load()
-    return Sys
+    return p, Sys
 
 
 def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
@@ -184,7 +183,7 @@ def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     return p, Sys
     
     
-def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
+def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # ensure that sidechains are referenced according to residue number
     cfg.SSRefType = 'number'
@@ -193,17 +192,6 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     # parse native struct for native contacts in given pdb
     print '\n'
     ContactDict = ps.ParsePdb(p)
-    # map to polymer
-    print '\n'
-    if cfg.Map2Polymer:
-        p_New = p.Map2Polymer(PolyName = cfg.PolyName)
-        # force re-calculation of native contact distances using the same native contacts
-        ContactDict_New = ps.ParsePdb(p_New, ResContactList = ContactDict['ResContactList'])
-        ContactDict = ContactDict_New
-    # bond sidechains of native contacts for harmonic restraints
-    # must be done prior to creating the Sys object
-    print '\n'
-    if cfg.NativeType == 2: p.BondNativeContacts(ContactDict)
     # create Sys object 
     print '\n'
     Sys = topo.MakeSys(p = p, cfg = cfg)
@@ -220,21 +208,21 @@ def makeGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
     print '\n'
-    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
-    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
+    cfg.NCOSType == 2
+    ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials
+    print '\n'
     SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
     # native contacts
     print '\n'
-    if cfg.NativeType == 0: ff.extend(SS.Go_native_0(Cut = cfg.NativeCut)) #TODO: think about arguments to this
-    if cfg.NativeType == 1: ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
-    if cfg.NativeType == 2: ff.extend(SS.Go_native_2(FConst = cfg.NativeFConst, HarmonicFluct = cfg.NativeHarmonicFluct))
+    cfg.NativeType == 1
+    ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
     # non-native contacts
     # Note: the non-native cutoff needs to be supplied carefully to be compatible
     # as a WCA with the supplied sigma
     print '\n'
-    if cfg.NonNativeType == 0: ff.extend(SS.Go_nonnative_0())
-    if cfg.NonNativeType == 1: ff.extend(SS.Go_nonnative_1()) #TODO: think about how to update this cutoff
+    cfg.NonNativeType == 0
+    ff.extend(SS.Go_nonnative_0())
     # populate forcefield
     Sys.ForceField.extend(ff)
     # set up other system properties
