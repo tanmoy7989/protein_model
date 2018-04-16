@@ -22,6 +22,7 @@ Temps = np.loadtxt(TempFile)
 TempSet = Temps[np.argmin(abs(Temps - RoomTemp))]
 
 # get Traj
+if not os.path.isdir(OutDir): os.system('mkdir -p %s' % OutDir)
 OutPrefix = os.path.join(OutDir, Prefix)
 TrajPrefix = os.path.join(TrajDir, Prefix)
 TrajFn = FMT['TRAJ'] % (TrajPrefix, TempSet)
@@ -48,11 +49,19 @@ print 'Creating Compute object'
 calc = cg.Compute(NativePdb = NativePdb, TrajFn = TrajFn, Temp = TempSet, Prefix = OutPrefix, hasPseudoGLY = hasPseudoGLY)
 
 # calculate overall rmsd
-def RMSD():
-    print 'Computing overall RMSD distribution'
-    rmsdhist = calc.QuickRMSD()
+def RMSD(CompType = 'traj'):
     oshelf = shelve.open(OutShelf)
-    oshelf['rmsd'] = rmsdhist
+    if CompType == 'traj':
+        print 'Computing overall RMSD distribution'
+        rmsdhist = calc.QuickRMSD()
+        oshelf['rmsd'] = rmsdhist
+    
+    if CompType == 'topclust':
+        print 'Computing RMSD from top cluster'
+        pNative = cg.ProteinNCOS(NativePdb)
+        pClust = cg.ProteinNCOS(oshelf['clustpdb'])
+        rmsd = pClust.QuickRMSD(pNative)
+        oshelf['rmsd_topclust'] = rmsd
     oshelf.close()
     return
 
@@ -123,10 +132,11 @@ def ContactOrder():
     
 
 #### MAIN ####
-RMSD()
+RMSD('traj')
 PhiPsiErr('traj')
-Cluster()
 ContactMap('traj')
+Cluster()
+RMSD('topclust')
 ContactMap('topclust')
 FracNativeContacts()
 ContactOrder()
