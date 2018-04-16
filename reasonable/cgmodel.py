@@ -3,7 +3,7 @@
 ''' main routine that creates different types of models
     '''
 
-import numpy as np
+import numpy as np, copy, random
 import protein
 
 from const import *
@@ -21,6 +21,12 @@ def Preamble(s = None):
 '''
     return s
 
+
+def CheckSys(p, Sys, cfg):
+    ''' checks the system to ensure filters have been applied correctly''' 
+    #TODO:
+    pass
+
 def PrepSys(Sys, TempSet = RoomTemp):
     # set up histogram
     for P in Sys.ForceField:
@@ -34,23 +40,6 @@ def PrepSys(Sys, TempSet = RoomTemp):
     Sys.Temp = TempSet
     Sys.TempSet = TempSet
     Sys.BoxL = 0.0
-
-class UpdatePostLoad(object):
-    ''' updates Sys object after loading params from forcefield files'''
-    def __init__(self, Sys, cfg):
-        self.Sys = Sys
-        self.cfg = cfg
-        self.UpdateNonNativeWCA()
-        # other update methods can be added as required
-        return None
-
-    def UpdateNonNativeWCA(self):
-        print 'Updating Non-native WCA potentials for Go model'
-        for P in self.Sys.ForceField:
-            if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
-                P.Cut = P.Sigma[0] * 2**(1/6.)
-        self.Sys.ForceField.Update()
-        return
 
 def loadParam(Sys, FF_file):
     # loads only those interactions in the current system
@@ -78,10 +67,46 @@ def loadParam(Sys, FF_file):
     print s
     return hasPotentials
 
-def CheckSys(p, Sys, cfg):
-    ''' checks the system to ensure filters have been applied correctly''' 
-    #TODO:
-    pass
+class UpdatePostLoad(object):
+    ''' updates Sys object after loading params from forcefield files'''
+    def __init__(self, Sys, cfg):
+        self.Sys = Sys
+        self.cfg = cfg
+        self.UpdateNonNativeWCA()
+        # other update methods can be added as required
+        return None
+
+    def UpdateNonNativeWCA(self):
+        print 'Updating Non-native WCA potentials for Go model'
+        for P in self.Sys.ForceField:
+            if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
+                P.Cut = P.Sigma[0] * 2**(1/6.)
+        self.Sys.ForceField.Update()
+        return
+
+def ErodeNativeContacts(ContactDict, DelFrac):
+    ''' removes DelFrac fraction of native contacts
+    from the given residue contact '''
+    ResContactList = ContactDict['c_native']
+    print 'ResContactList: ', ResContactList
+    print 'Deleting %2.1f %% random native contacts: ' % (100. * DelFrac), 
+    n = int(round(DelFrac * len(ResContactList)))
+    # take the floor and not the nearest int, if it deletes all contacts when not requested
+    if n == len(ResContactList):
+        if not DelFrac == 1.0: n = int(DelFrac * len(ResContactList))
+    NewResContactList = copy.copy(ResContactList)
+    Deleted = []
+    for i in range(n):
+        ind = random.randrange(len(NewResContactList))
+        Deleted.append(NewResContactList[ind])
+        NewResContactList.pop(ind)
+    print Deleted
+    del ContactDict
+    # recreate contactdict with these contacts
+    print '\n'
+    print 'Re-creating contact information with reduced contact list'
+    return NewResContactList
+
 
 def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp, NChains = 1):
     print Preamble()
@@ -183,7 +208,7 @@ def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     return p, Sys
     
     
-def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
+def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp, DelFrac = None):
     print Preamble()
     # ensure that sidechains are referenced according to residue number
     cfg.SSRefType = 'number'
@@ -191,7 +216,14 @@ def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
     # parse native struct for native contacts in given pdb
     print '\n'
+    if DelFrac: ps.Verbose = False
     ContactDict = ps.ParsePdb(p)
+    if DelFrac:
+        NewResContactList = ErodeNativeContacts(ContactDict, DelFrac)
+        ps.Verbose = True
+        # recreate the contact information
+        del ContactDict
+        ContactDict = ps.ParsePdb(p, ResContactList = NewResContactList)
     # create Sys object 
     print '\n'
     Sys = topo.MakeSys(p = p, cfg = cfg)
@@ -231,5 +263,3 @@ def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     if Verbose: print '\nCompiling model...'
     Sys.Load()
     return p, Sys
-
-

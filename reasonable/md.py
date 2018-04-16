@@ -100,6 +100,24 @@ class REMD(object):
         LogFile, ScreenFile, returncode = sim.export.lammps_REMD.RunLammpsReplica(InFile, Prefix = self.RunPrefix, Verbose = Verbose)
         return TrajFile, LogFile
 
+    def runMD(self, Parallel = False, NCores = 1):
+        ''' run MD using LAMMPS'''
+        # random initial structure
+        sim.export.lammps.LammpsExec = LAMMPSEXEC
+        self.Sys.Arrays.Pos = self.GenRandInitPos()
+        sim.system.init.velocities.Canonical(self.Sys, Temp = self.Sys.TempSet)
+        # feed in all the settings to the Lammps export
+        if Parallel:
+            sim.export.lammps.useParallel = True
+            sim.export.lammps.NCores = NCores
+            sim.export.lammps.autoSubmit = True
+        # run Lammps
+        sim.export.lammps.MakeLammpsTraj(self.Sys, Prefix = self.RunPrefix, TrajFile = '.lammpstrj.gz',
+                                         NStepsMin = self.NStepsMin, NStepsEquil = self.NStepsEquil,
+                                         NStepsProd = self.NStepsProd, WriteFreq = self.StepFreq, 
+                                         Verbose = True, DelTempFiles = False)
+        return
+
 
 # Re-ordering Lammps replica trajectories by temp
 # need to be placed outside the base class to be
