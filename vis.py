@@ -107,6 +107,9 @@ png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
     for x in [tmpNativePdb, tmpPdb, tmpPml]: os.remove(x)
     # if single plot with supplied labels is requested (mostly when used from the command line)
     if SinglePlot:
+        if not Label:
+            rmsd = sim.geom.RMSD(pNative.Pos[BBInds], p.Pos[BBInds]) ; print rmsd
+            Label = r'$RMSD = %2.2f \AA$' % rmsd
         pic0 = OutPrefix + '_tmp0.png'
         pic1 = OutPrefix + '_tmp1.png'
         cmdstr2 = '%s %s -trim -bordercolor white -background white -border 50x50 -quality 100 %s' % (IMAGEMAGICKEXEC, pic0, pic1)
@@ -123,7 +126,7 @@ png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
         for x in [pic0, pic1]: os.remove(x)
     return
 
-def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefix = None, hasPseudoGLY = False):
+def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefix = None, hasPseudoGLY = False, DelOverlayPng = True, OverlayPngDir = None):
     if OutDir is None: OutDir = os.path.getcwd()
     if not Labels:
         Labels = [x.split('/')[-1].split('.pdb')[0] for x in NativePdbs]
@@ -153,8 +156,17 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
         pic = mpimg.imread(pic1)
         ax.imshow(pic, aspect = 'auto')
         ax.set_title(Labels[i])
-        
-        for x in [pic0, pic1]: os.remove(x)
+        # delete intermediate pngs
+        os.remove(pic0)
+        if not DelOverlayPng:
+            if OverlayPngDir is None:
+                OverlayPngDir = os.path.join(OutDir, 'overlay_png')
+            if not os.path.isdir(OverlayPngDir): os.system('mkdir -p %s' % OverlayPngDir)
+            PdbName = NativePdb.split('/')[-1].split('.pdb')[0]
+            newpic1 = os.path.join(OverlayPngDir, PdbName + '_overlay.png')
+            os.system('mv %s %s' % (pic1, newpic1))
+        else:
+            os.remove(pic1)
     # save panel
     plt.subplots_adjust(wspace = 0)
     if PanelPrefix is None: PanelPrefix = 'vispanel'
@@ -165,7 +177,7 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
     # 1) help
-    helpstr = 'USAGE: python ~/Go/vis.py NativePdb Pdb [OutPrefix] [hasPseudoGLY]'
+    helpstr = 'USAGE: python ~/Go/vis.py NativePdb Pdb [OutPrefix] [hasPseudoGLY] [DelFinalPng]'
     if len(sys.argv) < 3: print helpstr
     
     #2) for single protein overlay
@@ -174,4 +186,4 @@ if __name__ == '__main__':
         Pdb = os.path.abspath(sys.argv[2])
         OutPrefix = os.path.abspath(sys.argv[3])
         hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
-        Overlay(NativePdb, Pdb, OutPrefix = OutPrefix, hasPseudoGLY = hasPseudoGLY, SinglePlot = True)
+        Overlay(NativePdb, Pdb, OutPrefix = OutPrefix, hasPseudoGLY = hasPseudoGLY, SinglePlot = False)

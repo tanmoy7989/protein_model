@@ -120,9 +120,9 @@ remd.runREMD()
 t2 = time.time()
         
 # reorder by temperature only at room temp
-md.Reorder(Temp = [%(TEMPSET)3.2f], Prefix = %(PREFIX)s, TempFile = 'temps.txt', 
-           NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
-           NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
+md.ReorderAll(ReorderTemps = [%(TEMPSET)3.2f], Prefix = %(PREFIX)s, TempFile = 'temps.txt', 
+              NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
+              NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
 t3 = time.time()
         
 # print stats

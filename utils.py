@@ -28,82 +28,14 @@ FMT = {
       }
 
 # forcefield types
-BBTYPES = ['ff_leu15', 'ff_val15', 'ff_leu15_bbs', 'ff_val15_bbs', 'ff_val_leu_bbs',
-           'ff_leu15_bbs_protg_spline', 'ff_val15_bbs_protg_spline']
-GoFFTYPES = [] 
-
+BBTYPES = ['ff_leu15', 'ff_val15', 'ff_leu15_bbs', 'ff_val15_bbs', 'ff_val_leu_bbs']
+GoFFTYPES = ['ff_leu15_bbs_protg_spline', 'ff_val15_bbs_protg_spline', 'ff_val_leu_bbs_protg_spline']
+ 
 # important master paths and metadata files
 FFDIR = os.path.expanduser('~/protein_model/cgff')
 FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/ff_metadata.txt')
 NATIVEDIR = os.path.expanduser('~/protein_model/native_struct/mapped')
 NATIVEMETADATAFILE = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
-
-
-def parseAA(PolyPrefix, MasterDir = None, TempSet = None):
-    if TempSet is None: TempSet = 300.0
-    # extract the trajectory closest to TempSet
-    if MasterDir is None: MasterDir = os.path.expanduser('~/protein_model/%s_AA' % PolyPrefix)
-    TempFile = os.path.join(MasterDir, 'Lammps', 'temps.txt')
-    Temps = np.loadtxt(TempFile)
-    Ind = np.argmin(abs(Temps - TempSet))
-    TrajTemp = Temps[Ind]
-    TrajFn = os.path.join(MasterDir, 'Lammps', FMT['TRAJ'] % (PolyPrefix, TrajTemp))
-    # extract energy data, pdb and clustered pdbs if present
-    EneFn = os.path.join(MasterDir, 'Lammps', FMT['ENE'] % (PolyPrefix, TrajTemp))
-    Pdb = os.path.join(MasterDir, 'Lammps', FMT['PDB'] % (PolyPrefix, TrajTemp))
-    Pdb_generic = os.path.join(MasterDir, 'Lammps', PolyPrefix + '.pdb')
-    # check if these exist
-    if not os.path.isfile(TrajFn): TrajFn = None
-    if not os.path.isfile(EneFn): EneFn = None
-    if not os.path.isfile(Pdb):
-        if os.path.isfile(Pdb_generic): Pdb = Pdb_generic
-        else: Pdb = None
-    # check if enough replica information is present
-    hasReplica = True
-    for T in Temps:
-        this_TrajFn = os.path.join(MasterDir, 'Lammps', FMT['TRAJ'] % (PolyPrefix, T))
-        this_EneFn = os.path.join(MasterDir, 'Lammps', FMT['ENE'] % (PolyPrefix, T)) 
-        if not (os.path.isfile(this_TrajFn) and os.path.isfile(this_EneFn)):
-            hasReplica = False
-            print this_TrajFn, this_EneFn, ' does not exist'
-            break
-    
-    ret = {'MasterDir': MasterDir, 'TempFile': TempFile, 'Traj': TrajFn, 
-           'Ene': EneFn, 'Pdb': Pdb, 'Temp': TrajTemp, 'TempInd': Ind,
-           'hasReplica': hasReplica}
-    
-    return ret
-
-def parseCG(PolyPrefix, MasterDir = None, TempSet = None):
-    if TempSet is None: TempSet = 300.0
-    # extract the trajectory closest to TempSet
-    if MasterDir is None: MasterDir = os.path.join(FFDIR, '%s_modtraj' % PolyPrefix)
-    # CG simulations absent
-    if not os.path.isdir(MasterDir):
-        ret = {'hasReplica': False}
-        return ret
-    TempFile = os.path.join(MasterDir, 'temps.txt')
-    Temps = np.loadtxt(TempFile)
-    Ind = np.argmin(abs(Temps - TempSet))
-    TrajTemp = Temps[Ind]
-    TrajFn = os.path.join(MasterDir, FMT['TRAJ'] % (PolyPrefix, TrajTemp))
-    # extract energy data, pdb and clustered pdbs if present
-    EneFn = os.path.join(MasterDir, FMT['ENE'] % (PolyPrefix, TrajTemp))
-    # check if these exist
-    if not os.path.isfile(TrajFn): TrajFn = None
-    if not os.path.isfile(EneFn): EneFn = None
-    # check if enough replica information is present
-    hasReplica = True
-    for T in Temps:
-        this_TrajFn = os.path.join(MasterDir, FMT['TRAJ'] % (PolyPrefix, T))
-        this_EneFn = os.path.join(MasterDir,  FMT['ENE'] % (PolyPrefix, T)) 
-        if not (os.path.isfile(this_TrajFn) and os.path.isfile(this_EneFn)):
-            hasReplica = False
-            break
-            
-    ret = {'MasterDir': MasterDir, 'TempFile': TempFile, 'Traj': TrajFn, 
-           'Ene': EneFn, 'Temp': TrajTemp, 'TempInd': Ind, 'hasReplica': hasReplica}
-    return ret
 
 def parseBBFF(BBType, MasterDir = None):
     if not BBTYPES.__contains__(BBType):

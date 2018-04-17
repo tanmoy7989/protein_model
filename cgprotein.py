@@ -114,11 +114,6 @@ class ProteinNCOS(object):
         self.Pos = Pos
         self.BBPos = self.GetBBPosSlice()
    
-    def ReimageChain(self, BoxL = np.zeros(3)):
-        # reimages every atom in a chain such that
-        # atom i+1 is reimaged w.r.t atom i
-        return lib.reimagechain(pos = self.Pos, boxl = BoxL)
-
     def GetStartInds(self):
         # don't let this get calculated twice
         if len(self.StartInds) == self.NRes: return
@@ -231,11 +226,12 @@ class ProteinNCOS(object):
     def GetPhiPsi(self, ResNums = None, BoxL = np.zeros(3)):
         if ResNums is None: ResNums = range(self.NRes)
         # exclude residues at chain termini
-        for i in self.ChainResNums:
+        for i in (self.ChainResNums + [0, self.NRes-1]):
             if ResNums.__contains__(i): ResNums.remove(i)
         # get the entire backbone pos coordinates
         BBPos = self.GetBBPosSlice()
-        BBPos = self.ReimageChain(BBPos, BoxL = BoxL)
+        # minimage for periodic box
+        if all(BoxL) :BBPos = lib.reimagechain(pos = self.Pos, boxl = BoxL)
         Phi = np.zeros(len(ResNums))
         Psi = np.zeros(len(ResNums))
         for i, r in enumerate(ResNums):
@@ -284,7 +280,7 @@ class Compute(object):
         if not Temp is None:
             self.Temp = Temp
         # cg protein objects for native and predicted
-        self.pNative = ProteinNCOS(NativePdb)
+        self.pNative = ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
         self.p = ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
    
     def Update(self, TrajFn = None, Temp = None):
@@ -531,7 +527,7 @@ class Compute(object):
             measure.Normalize = True
             measure.NBins = NBins
             measure.NBlocks = NBlocks
-            hist = measure.makeHist2D(x = Phi, y = Psi)
+            hist = measure.makeHist2D(x = Phi.flatten(), y = Psi.flatten())
             ret = (Phi, Psi, hist)
         else: ret = (Phi, Psi)
         with open(picklename, 'w') as of: pickle.dump(ret, of)
@@ -544,7 +540,7 @@ class Replica(object):
     ReInitWeights = False
     ReCompute = False
     
-    def __init__(self, NativePdb, TrajPrefix, Prefix, TempSet = None, OrderParams = None):
+    def __init__(self, NativePdb, TrajPrefix, Prefix, TempSet = None, OrderParams = None, hasPseudoGLY = False):
         # order param calc functions
         self.MasterOrderParamDict = {'U': self.U,
                                      'Rg': self.Rg,
@@ -572,7 +568,7 @@ class Replica(object):
         if not self.OrderParams.__contains__('U'): self.OrderParams += ['U']
         self.DataShelf = os.path.join(FMT['DATASHELF'] % self.Prefix)
         # link a compute object
-        self.Calc = Compute(NativePdb = self.NativePdb, Prefix = self.Prefix)
+        self.Calc = Compute(NativePdb = self.NativePdb, Prefix = self.Prefix, hasPseudoGLY = hasPseudoGLY)
         # get all orderparams from all replicas
         self.GetAllData()
         # get all config weights

@@ -4,7 +4,7 @@ import os, shutil, sys, numpy as np, cPickle as pickle, shelve
 import utils, vis
 
 #### PREDICTED STRUCTURES PANEL ####
-def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False):
+def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False, DelOverlayPng = False, OverlayPngDir = None):
     print 'PLOTTING PANELS'
     print '---------------'
     import matplotlib ; matplotlib.use('Agg')
@@ -35,7 +35,8 @@ def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False):
             else: Labels.append(None)
     # plot panel
     print 'Rendering...'
-    vis.Panel(NativePdbs, ClustPdbs, layout['NRows'], layout['NCols'], Labels, OutDir = OutDir, PanelPrefix = Prefix, hasPseudoGLY = hasPseudoGLY)
+    vis.Panel(NativePdbs, ClustPdbs, layout['NRows'], layout['NCols'], Labels, OutDir = OutDir, PanelPrefix = Prefix, 
+              hasPseudoGLY = hasPseudoGLY, DelOverlayPng = DelOverlayPng, OverlayPngDir = OverlayPngDir)
     return
 
 
@@ -263,7 +264,7 @@ def PlotContactOrder(DataDir, Prefix = None):
 
 
 ######## MAIN ########
-HELPSTR = '''USAGE: python ~/protein_model/plot.py pset_type OutDir [hasPseudoGLY] (default 0)'''
+HELPSTR = '''USAGE: python ~/protein_model/plot.py pset_type OutDir[hasPseudoGLY] (default 0) [DelFinalPng] [FinalPngDir]'''
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print HELPSTR
@@ -277,9 +278,15 @@ if __name__ == '__main__':
         NativeDir = os.path.expanduser('~/protein_model/native_struct/mapped')
         AATopClustDir = os.path.expanduser('~/protein_model/native_struct/ff96_igb5_glghs_topclust_mapped')
 
+    DelOverlayPng = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+    OverlayPngDir = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 else os.path.abspath('./Native_overlay_pngs')
 
-    PlotPanel(NativeDir = NativeDir, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native', hasPseudoGLY = hasPseudoGLY)
-    PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust', hasPseudoGLY = hasPseudoGLY)
+
+
+    PlotPanel(NativeDir = NativeDir, DataDir = 'NativeAnalysis', Prefix = 'vispanel_native', 
+              hasPseudoGLY = hasPseudoGLY, DelOverlayPng = DelOverlayPng, OverlayPngDir = OverlayPngDir)
+    PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust', 
+              hasPseudoGLY = hasPseudoGLY, DelOverlayPng = True)
     
     PlotRamaProb(DataDir = 'NativeAnalysis', Prefix = 'ramaprob_native')
     PlotRamaProb(DataDir = 'AATopClustAnalysis', Prefix = 'ramaprob_topclust')

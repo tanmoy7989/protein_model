@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-import os, numpy as np
+import os, sys, numpy as np
 import reasonable as cg
+
+PdbName = sys.argv[1]
 
 cfg = cg.config.Config()
 cfg.BondedNCOSType = 1
 cfg.NCOSType = 2
 cfg.AtomS['GLY'] = cg.const.AtomS_GLY
 cfg.SSRefType = 'number'
-cfg.NativeType = 2
-cfg.NonNativeType = -1
 
-pdb = os.path.expanduser('~/protein_model/native_struct/mapped_pseudoGLY/1l2y.pdb')
+pdb = os.path.expanduser('~/protein_model/native_struct/mapped_pseudoGLY/%s.pdb' % PdbName)
 p = cg.topo.ProteinNCOS(Pdb = pdb, cfg = cfg)
 
 Sys = cg.topo.MakeSys(p)

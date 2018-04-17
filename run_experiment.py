@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys
+import os, sys, numpy as np
 
 ExpName = sys.argv[1]
 
@@ -40,6 +40,7 @@ if ExpName == 'erodenative_experiment':
     if len(sys.argv) >= 5:
         for i, frac in enumerate(sys.argv[5:]):
             DelFracList.append(float(frac))
+    np.savetxt(os.path.join(OutDir, 'erodefrac.txt'), np.array(DelFracList), fmt = '%1.2f')
     if not DelFracList: DelFracList = [0.0]
     MetaDataFile = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
     data = eval(file(MetaDataFile).read())

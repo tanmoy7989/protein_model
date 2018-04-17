@@ -53,11 +53,11 @@ TempSet = Temps[TempInd]
 TimeStep = FFMetadata['TimeStep'] # femto-seconds
     
 # MD iterations
-NStepsMin = 1000 #10000                   # 10 ps
-NStepsEquil = 1000 #50000000              # 50 ns
-NStepsProd  = 1000 #20000000              # 20 ns
-NStepsSwap = 10 #1000                   # 1 ps
-StepFreq = 20 #int(NStepsProd / 10000)  # need 10000 frames, 2 ps
+NStepsMin = 10000                   # 10 ps
+NStepsEquil = 50000000              # 50 ns
+NStepsProd  = 20000000              # 20 ns
+NStepsSwap = 1000                   # 1 ps
+StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
     
 # REMD script template
 mdstr = '''
