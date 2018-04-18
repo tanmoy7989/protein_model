@@ -13,8 +13,7 @@
 import os, sys, cPickle as pickle, shelve, numpy as np, copy
 import sim, protein, measure, pickleTraj, utils
 import cgproteinlib as lib
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import pymbar, whamlib
 
 # file formats
 FMT = utils.FMT
@@ -626,7 +625,6 @@ class Replica(object):
             d.close()
             return
         
-        import pymbar, whamlib
         beta_k = 1.0 / (kB * self.Temps)
         K = len(self.Temps)
         N = self.NFrames
@@ -651,12 +649,12 @@ class Replica(object):
             this_u_kln = np.zeros([K,K,this_N], np.float64)
             for k in range(K):
                 for l in range(K):
-                    this_u_kln[k, l, :] = beta_k[l] * this_U_kn[k, :]
+                    this_u_kln[k, l, 0:this_N_k[k]] = beta_k[l] * this_U_kn[k, 0:this_N_k[k]]
             # initialize mbar object
             mbar = pymbar.mbar.MBAR(this_u_kln, this_N_k, verbose = False)
             # get free energies and shift by value at lowest temp
             this_f_k = mbar.f_k
-            this_f_k -= this_f_k.min()
+            #this_f_k = whamlib.free_energy(ekn = this_U_kn, betak = beta_k, nbin = 100, niterbin = 100, niterall = 10) 
             # get log weights at all temps for this block        
             for k, t in enumerate(self.Temps):
                 log_w_kn = whamlib.log_weight(ekn = this_U_kn, betak = beta_k, targetbeta = beta_k[k], fk = this_f_k)
@@ -668,6 +666,7 @@ class Replica(object):
         
     
     def FoldCurve(self, O = 'RMSD'):
+        import matplotlib.pyplot as plt
         # calculate folding curve w.r.t. chosen order param (usually rmsd)
         picklename = FMT['FOLDCURVE'] % (self.Prefix, O)
         if os.path.isfile(picklename): return
@@ -698,12 +697,13 @@ class Replica(object):
     	        weights = d['w_kn'][ (k,b) ].flatten()
     	        print 'Calculating histograms...'
     	        x = x_kn[:, start:stop].flatten()
-    	        measure.NBins = NBins
+                measure.NBins = NBins
     	        measure.NBlocks = 1
-    	        this_bin_centers, this_hist, this_err = measure.makeHist(x, weights = weights, bintuple = (x_min, x_max, dx))
-    	        # computing folding fraction at (temp, block) as cumulative histogram within a cutoff
+    	        measure.Normalize = False
+                this_bin_centers, this_hist, this_err = measure.makeHist(x, weights = weights, bintuple = (x_min, x_max, dx))
+                # computing folding fraction at (temp, block) as cumulative histogram within a cutoff
     	        foldfrac_block[k, b] = this_hist[cut_inds].sum() / float(this_hist.sum())
-    	
+
         foldfrac = np.mean(foldfrac_block, axis = 1)
         if NBlocks > 1: err = np.std(foldfrac_block, axis = 1, ddof = 1)
         else: err = np.zeros(len(self.Temps))
@@ -734,12 +734,13 @@ class Replica(object):
         # compute PMF block by block
         BlockSize = int(self.NFrames / NBlocks)
         pmf_block = np.zeros([NBlocks, NBins])
+        TempInd = np.argmin(abs(self.Temps - self.TempSet))
         for b in range(NBlocks):
             if NBlocks > 1: print 'Block: ', b
             start = b * BlockSize
             stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
             x = x_kn[:, start:stop].flatten()
-            weights = d['w_kn'][ (k, b) ].flatten()
+            weights = d['w_kn'][ (TempInd, b) ].flatten()
             measure.NBins = NBins
             measure.NBlocks = 1
             bintuple = (x_min, x_max, dx)
@@ -748,7 +749,7 @@ class Replica(object):
         
         # trim the pmf
         pmf = np.mean(pmf_block, axis = 0)
-        pmf = TrimPMF(pmf, Dim = 1)
+        #pmf = TrimPMF(pmf, Dim = 1)
         if NBlocks > 1: err = np.std(pmf_block, axis = 0, ddof = 1)
         else: err = np.zeros(NBins)
         # write to pickle
@@ -784,23 +785,23 @@ class Replica(object):
         # compute PMF block by block
         BlockSize = int(self.NFrames / NBlocks)
         pmf_block = np.zeros([NBlocks, NBins, NBins])
+        TempInd = np.argmin(abs(self.Temps - self.TempSet))
         for b in range(NBlocks):
             if NBlocks > 1: print 'Block: ', b
             start = b * BlockSize
             stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
             x = x_kn[:, start:stop].flatten()
             y = y_kn[:, start:stop].flatten()
-            weights = d['w_kn'][ (k, b) ].flatten()
+            weights = d['w_kn'][ (TempInd, b) ].flatten()
             measure.NBins = NBins
             measure.NBlocks = 1
             bintuple = ( (x_min, y_min), (x_max, y_max), (dx, dy) )
             bin_centers, this_hist, this_err = measure.makeHist2D(x, y, weights = weights, bintuple = bintuple)
-            pmf_block[b, :, :] = - (kB * self.TempSet) * np.log(this_hist)
-            
-        # trim the pmf
+            pmf_block[b, :, :] =  - (kB * self.TempSet) * np.log(this_hist)
+             
+        # calculate errors
         x_centers, y_centers = bin_centers
         pmf = np.mean(pmf_block, axis = 0)
-        pmf = TrimPMF(pmf, Dim = 2)
         if NBlocks > 1: err = np.std(pmf_block, axis = 0, ddof = 1)
         else: err = np.zeros([NBins, NBins])
         # write to pickle
