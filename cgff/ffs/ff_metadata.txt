@@ -1,0 +1,101 @@
+######## BACKBONE FORCEFIELDS  ########
+{
+'ff_leu15' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType    : 1,
+        'NCOSType'          : 1,
+        'PolyName'          : 'LEU'
+    },
+
+'ff_val15' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType:   : 1,
+        'NCOSType'          : 1,
+        'PolyName'          : 'VAL'
+    },
+
+'ff_leu15_bbs' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType'   : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : 'LEU'
+    },
+
+'ff_val15_bbs' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType:   : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : 'VAL'
+    },
+
+'ff_val_leu_bbs' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType'   : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : None,
+    },
+
+
+
+'ff_leu15_bbs_protg_spline' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType    : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : 'LEU',
+        'NativeCut'         : 10.0
+    },
+
+'ff_val15_bbs_protg_spline' : 
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType'   : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : 'VAL',
+        'NativeCut'         : 10.0
+    },
+
+'ff_val_leu_bbs_protg_spline':
+    {
+        'MinBondOrd'        : 5,
+        'NKnot'             : 40,
+        'Cut'               : 10.0,
+        'TimeStep'          : 1.0,
+        'Bonded_NCOSType'   : 1,
+        'NCOSType'          : 2,
+        'PolyName'          : None,
+        'NativeCut'         : 10.0
+    },
+
+
+
+
+
+
+}
