@@ -142,17 +142,20 @@ class Srel(object):
         del Opt
 
 
-    def runGoSrel(self, OptNonNative = False):
+    def runGoSrel(self, Constrain = True, OptNonNative = False):
         '''optimize Go potentials with a fixed backbone and a traj'''
         # turn off spline constraints for all backbone potentials
         OptSet = ['NonBondNative'] if not OptNonNative else ['NonBondNative', 'NonBondNonNative']
         print '\nTurning off constraints for backbone potentials...'
         for P in self.Sys.ForceField:
             if not P.IsSpline: continue
+            # constrain all backbone splines
             if not OptSet.__contains__(P.Name):
                 P.ConstrainSpline = False
-            else:
-                print 'Constraining potential: %s' % P.Name
+            # see if native (/nonnative) splines need to be constrained
+            if OptSet.__contains__(P.Name):
+                if Constrain: print 'Constraining potential: %s' % P.Name
+                else: P.ConstrainSpline = False
         # treat inner core (don't do this for frozen potentials)
         print 'Treating inner core for spline Go potentials...'
         for P in self.Sys.ForceField:

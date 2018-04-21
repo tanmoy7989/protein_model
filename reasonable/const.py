@@ -78,9 +78,9 @@ DEFAULTS = dict(
             # sim-style sidechain objects (none for glycine by default)
             AtomS = DfltAtomS,
 
-            # backbone-sidechain options (full 21-alphabet by default)
-            Bonded_NCOSType = 0,
-            NCOSType = 0,
+            # backbone-sidechain options (1-alphabet for bonded and constant repulsive for non-bonded by default)
+            Bonded_NCOSType = 1,
+            NCOSType = 2,
                 
             # Go model types (not a Go model by default)
             NativeType = -1,
