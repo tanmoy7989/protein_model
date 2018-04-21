@@ -6,7 +6,7 @@
         'NKnot'             : 40,
         'Cut'               : 10.0,
         'TimeStep'          : 1.0,
-        'Bonded_NCOSType    : 1,
+        'Bonded_NCOSType'   : 1,
         'NCOSType'          : 1,
         'PolyName'          : 'LEU'
     },
@@ -17,7 +17,7 @@
         'NKnot'             : 40,
         'Cut'               : 10.0,
         'TimeStep'          : 1.0,
-        'Bonded_NCOSType:   : 1,
+        'Bonded_NCOSType'   : 1,
         'NCOSType'          : 1,
         'PolyName'          : 'VAL'
     },
@@ -39,7 +39,7 @@
         'NKnot'             : 40,
         'Cut'               : 10.0,
         'TimeStep'          : 1.0,
-        'Bonded_NCOSType:   : 1,
+        'Bonded_NCOSType'   : 1,
         'NCOSType'          : 2,
         'PolyName'          : 'VAL'
     },
@@ -64,7 +64,7 @@
         'NKnot'             : 40,
         'Cut'               : 10.0,
         'TimeStep'          : 1.0,
-        'Bonded_NCOSType    : 1,
+        'Bonded_NCOSType'   : 1,
         'NCOSType'          : 2,
         'PolyName'          : 'LEU',
         'NativeCut'         : 10.0
