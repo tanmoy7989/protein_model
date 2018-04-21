@@ -53,6 +53,7 @@ calc.RamaChandran()
 print 'Creating Replica object'
 rep = lib.Replica(NativePdb = NativePdb, TrajPrefix = TrajPrefix, Prefix = OutPrefix,
                   TempSet = TempSet, OrderParams = ['U', 'Rg', 'RMSD'])
+#rep.ReInitWeights = True
 
 # folding curves
 rep.FoldCurve()

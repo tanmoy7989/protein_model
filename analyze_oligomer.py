@@ -13,12 +13,8 @@ NativePdb = os.path.abspath(sys.argv[1])
 Prefix = sys.argv[2]
 TrajDir = os.path.abspath(sys.argv[3])
 OutDir = os.path.abspath(sys.argv[4])
-hasPseudoGLY = int(sys.argv[5]) if len(sys.argv) > 5 else False
-
-# get tempset
-TempFile = os.path.join(TrajDir, 'temps.txt')
-Temps = np.loadtxt(TempFile)
-TempSet = Temps[np.argmin(abs(Temps - RoomTemp))]
+TempSet = float(sys.argv[5])
+hasPseudoGLY = int(sys.argv[6]) if len(sys.argv) > 6 else False
 
 # get Traj
 if not os.path.isdir(OutDir): os.system('mkdir -p %s' % OutDir)

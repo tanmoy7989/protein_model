@@ -689,20 +689,20 @@ class Replica(object):
         foldfrac_block = np.zeros([len(self.Temps), NBlocks])
         for k, t in enumerate(self.Temps):
             print 'Target Temp = %3.2f K' % t
-    	    for b in range(NBlocks):
-    	        if NBlocks > 1: print ' Block: ', b
-    	        start = b * BlockSize
-    	        stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
-    	        # get config weights
-    	        weights = d['w_kn'][ (k,b) ].flatten()
-    	        print 'Calculating histograms...'
-    	        x = x_kn[:, start:stop].flatten()
+            for b in range(NBlocks):
+                if NBlocks > 1: print ' Block: ', b
+                start = b * BlockSize
+                stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
+                # get config weights
+                weights = d['w_kn'][ (k,b) ].flatten()
+                print 'Calculating histograms...'
+                x = x_kn[:, start:stop].flatten()
                 measure.NBins = NBins
-    	        measure.NBlocks = 1
-    	        measure.Normalize = False
+                measure.NBlocks = 1
+                measure.Normalize = False
                 this_bin_centers, this_hist, this_err = measure.makeHist(x, weights = weights, bintuple = (x_min, x_max, dx))
                 # computing folding fraction at (temp, block) as cumulative histogram within a cutoff
-    	        foldfrac_block[k, b] = this_hist[cut_inds].sum() / float(this_hist.sum())
+                foldfrac_block[k, b] = this_hist[cut_inds].sum() / float(this_hist.sum())
 
         foldfrac = np.mean(foldfrac_block, axis = 1)
         if NBlocks > 1: err = np.std(foldfrac_block, axis = 1, ddof = 1)
