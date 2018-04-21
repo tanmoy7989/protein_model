@@ -125,13 +125,18 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp, NChains = 1):
     # create backbone-sidechain potentials
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg)
     # 1-alphabet bonded potentials
-    cfg.Bonded_NCOSType = 1
     print '\n'
-    ff.extend(BB_S.BB_S_Bonded_1())
+    if cfg.Bonded_NCOSType == 0:
+        print 'Error: Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.Bonded_NCOSType == 1: ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
     print '\n'
-    cfg.NCOSType == 2
-    ff.extend(BB_S.BB_S_2())
+    if cfg.NCOSType == 0:
+        print 'Error: Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials (1-alphabet)
     SS = ss.P_Sidechain(p, Sys, cfg)
     print '\n'
@@ -185,12 +190,17 @@ def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
     # 1-alphabet bonded potentials
     print '\n'
-    cfg.Bonded_NCOSType = 1
-    ff.extend(BB_S.BB_S_Bonded_1())
+    if cfg.Bonded_NCOSType == 0:
+        print 'Error: Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.Bonded_NCOSType == 1: ff.extend(BB_S.BB_S_Bonded_1())
     # constant repulsive nonbonded potentials
     print '\n'
-    cfg.NCOSType = 2
-    ff.extend(BB_S.BB_S_2())
+    if cfg.NCOSType == 0:
+        print 'Error: Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials
     print '\n'
     SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
@@ -235,26 +245,32 @@ def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp, DelFrac =
     # create backbone-sidechain potentials
     BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
     # 1-alphabet bonded potentials
-    cfg.Bonded_NCOSType = 1
     print '\n'
-    ff.extend(BB_S.BB_S_Bonded_1())
+    if cfg.Bonded_NCOSType == 0:
+        print 'Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.Bonded_NCOSType == 1:ff.extend(BB_S.BB_S_Bonded_1())
     # 1-alphabet or constant repulsive nonbonded potentials
     print '\n'
-    cfg.NCOSType == 2
-    ff.extend(BB_S.BB_S_2())
+    if cfg.NCOSType == 0:
+        print 'Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
     # create sidechain-sidechain potentials
     print '\n'
     SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
     # native contacts
     print '\n'
-    cfg.NativeType == 1
+    cfg.NativeType = 1
     ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
     # non-native contacts
     # Note: the non-native cutoff needs to be supplied carefully to be compatible
     # as a WCA with the supplied sigma
     print '\n'
-    cfg.NonNativeType == 0
-    ff.extend(SS.Go_nonnative_0())
+    if not cfg.NonNativeType == -1:
+        cfg.NonNativeType = 0
+        ff.extend(SS.Go_nonnative_0())
     # populate forcefield
     Sys.ForceField.extend(ff)
     # set up other system properties

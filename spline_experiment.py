@@ -41,6 +41,8 @@ MinBondOrd = FFMetadata['MinBondOrd']
 NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
 NativeCut = FFMetadata['NativeCut']
+Bonded_NCOSType = FFMetadata['Bonded_NCOSType']
+NCOSType = FFMetadata['NCOSType']
 
 # temp schedule
 TLow = 270.
@@ -85,8 +87,8 @@ if hasPseudoGLY: cfg.AtomS['GLY'] = const.AtomS_GLY
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
-cfg.Bonded_NCOSType = 1
-cfg.NCOSType = 1
+cfg.Bonded_NCOSType = %(BONDED_NCOSTYPE)d
+cfg.NCOSType = %(NCOSTYPE)d
 
 # native contacts (spline)
 cfg.NativeType = 1
@@ -115,8 +117,8 @@ print Sys.ForceField.ParamString()
 
 # compile REMD object
 remd = md.REMD(p, Sys, Prefix = Prefix, Temps = Temps,
-                   NStepsMin = %(NSTEPSMIN)d, NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
-                   NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
+               NStepsMin = %(NSTEPSMIN)d, NStepsEquil = %(NSTEPSEQUIL)d, NStepsProd = %(NSTEPSPROD)d,
+               NStepsSwap = %(NSTEPSSWAP)d, StepFreq = %(STEPFREQ)d)
 
 # run REMD
 t1 = time.time()
@@ -130,7 +132,7 @@ md.ReorderAll(ReorderTemps = [%(TEMPSET)3.2f], Prefix = Prefix, TempFile = 'temp
 t3 = time.time()
         
 # print stats
-print "REMD time: ", (t2-1), " seconds"
+print "REMD time: ", (t2-t1), " seconds"
 print "Reordering time: ", (t3-t2), " seconds"
 '''
     
@@ -162,6 +164,8 @@ d1 = {
       'MINBONDORD'      : MinBondOrd,
       'NKNOT'           : NKnot,
       'SPCUT'           : SPCut,
+      'BONDED_NCOSTYPE' : Bonded_NCOSType,
+      'NCOSTYPE'        : NCOSType,
       
       'NATIVECUT'       : NativeCut,
       

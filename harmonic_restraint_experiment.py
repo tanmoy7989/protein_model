@@ -40,6 +40,8 @@ Prefix = 'prot_' + PdbName
 MinBondOrd = FFMetadata['MinBondOrd']
 NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
+Bonded_NCOSType = FFMetadata['Bonded_NCOSType']
+NCOSType = FFMetadata['NCOSType']
 
 # Go parameters
 HarmonicFluct = 1.0 / np.sqrt(80.) #used to tune the force constant in s-s bias
@@ -88,6 +90,8 @@ if hasPseudoGLY: cfg.AtomS['GLY'] = const.AtomS_GLY
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
+cfg.Bonded_NCOSType = %(BONDED_NCOSTYPE)d
+cfg.NCOSType = %(NCOSTYPE)d
 
 # native contacts
 cfg.NativeHarmonicFluct = %(HARMONICFLUCT)g
@@ -126,7 +130,7 @@ md.ReorderAll(ReorderTemps = [%(TEMPSET)3.2f], Prefix = %(PREFIX)s, TempFile = '
 t3 = time.time()
         
 # print stats
-print "REMD time: ", (t2-1), " seconds"
+print "REMD time: ", (t2-t1), " seconds"
 print "Reordering time: ", (t3-t2), " seconds"
 '''
     
@@ -158,6 +162,8 @@ d1 = {
       'MINBONDORD'      : MinBondOrd,
       'NKNOT'           : NKnot,
       'SPCUT'           : SPCut,
+      'BONDED_NCOSTYPE' : Bonded_NCOSType,
+      'NCOSTYPE'        : NCOSType,
       
       'HARMONICFLUCT'   : HarmonicFluct,
 
