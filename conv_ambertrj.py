@@ -4,7 +4,8 @@ import os, sys, numpy as np
 
 MasterDir = os.path.abspath(sys.argv[1])
 Prefix = os.path.abspath(sys.argv[2])
-FragLen = 17 if not len(sys.argv) > 3 else int(sys.argv[3])
+hasPseudoGLY = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+FragLen = 17 if not len(sys.argv) > 4 else int(sys.argv[4])
 
 TrajDir = os.path.join(MasterDir, 'r1-%da/data' % FragLen)
 TempFile = os.path.join(MasterDir, 'r1-%da/data/temps.txt' % FragLen)
@@ -18,7 +19,7 @@ for i, T in enumerate(Temps):
     PrmTop = os.path.join(TrajDir, '%d.prmtop.parm7' % i)
     AmberEne = os.path.join(TrajDir, '%d.mdene.txt.gz' % i)
     LastNFrames = 20000
-    cmd = 'python ~/Go/map.py %s %s %s %s %s %d' % (InPdb, CGPrefix, AATraj, PrmTop, AmberEne, LastNFrames)
+    cmd = 'python ~/protein_model/reasonable/mapNCOS.py map %s %s %d %s %s %s %d' % (InPdb, CGPrefix, hasPseudoGLY, AATraj, PrmTop, AmberEne, LastNFrames)
     os.system(cmd)
 
     
