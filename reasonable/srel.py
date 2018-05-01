@@ -17,6 +17,8 @@ class Srel(object):
     ''' runs relative entropy optimization for polymers, Go models in single and extended ensemble situations'''
     def __init__(self, p, Sys, AATraj, Temps, cfg = None, Prefix = None, OutDir = os.getcwd(), **kwargs):
         # read in protein, Sys and traj objects
+        print '\nRELATIVE ENTROPY OPTIMIZATION'
+        print '=============================\n'
         self.p = p
         self.Sys = Sys
         self.AATraj = AATraj
@@ -61,15 +63,30 @@ class Srel(object):
         self.useBondHessian = kwargs.get('useBondHessian', True)
         # permanently frozen potentials (constant potentials)
         self.PermaFrostList = kwargs.get('PermaFrostList', [])
-        self.isPermaFrost = lambda P : self.PermaFrostList.__contains__(P.Name)
+        self.isPermaFrost = lambda P : self.Sys.ForceField.__contains__(P) and self.PermaFrostList.__contains__(P.Name)
     
+    
+    def ReportStage(self, Stage):
+        FrozenPotentials = []
+        UnfrozenPotentials = []
+        for P in self.Sys.ForceField:
+            Test_others = (not Stage == 'all') and P.Name.startswith(Stage) and not self.isPermaFrost(P)
+            Test_all = (Stage == 'all') and not P.Name.startswith('Bond') and not self.isPermaFrost(P)
+            if (Test_others or Test_all): UnfrozenPotentials.append(P.Name)
+            else: FrozenPotentials.append(P.Name)
+        FrozenPotentials.sort()
+        UnfrozenPotentials.sort()
+        print ' Optimizing stage: %s...' % Stage
+        print '  Freezing potentials: %s' % (', '.join(FrozenPotentials))
+        print '  Optimzing potentials: %s' % (', '.join(UnfrozenPotentials))
+        
     
     def runPolymerSrel(self, OptStages = []):
         ''' optimize a NCOS backbone forcefield from a polypeptide traj'''
         # opt-stages
         if not OptStages: OptStages = ['Bond', 'Angle', 'Torsion', 'NonBond', 'all']
         # treat inner core (don't do this for frozen potentials)
-        print '\nTreating inner core for nonbonded spline potentials...'
+        print ' Treating inner core for nonbonded spline potentials...'
         for P in self.Sys.ForceField:
             # turn off constraints for PermaFrost potentials
             if self.isPermaFrost(P) and P.IsSpline: P.ConstrainSpline = False
@@ -78,7 +95,6 @@ class Srel(object):
                 P.EneInner = "20kT"
                 P.EneSlopeInner = None
         # optimizer initialization (constraining all splines)
-        print 'Starting Srel optimization for polypeptide...'
         Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         Opt = sim.srel.UseLammps(Opt)
         Opt.TempFileDir = os.getcwd()
@@ -87,17 +103,18 @@ class Srel(object):
         sim.export.lammps.LammpsExec = LAMMPSEXEC
         sim.export.lammps_REMD.NStepsSwap = self.NStepsSwap
         sim.export.lammps_REMD.TEMPS = self.Temps
+        print '\n Starting stagewise optimization for polypeptide...\n'
         # stagewise optimization
         # bonds
         if OptStages.__contains__('Bond'):
             Opt.Iter = 0
-            print 'Optimizing Bonds...'
+            self.ReportStage('Bond')
             for P in self.Sys.ForceField: P.FreezeParam()
             for P in self.Sys.ForceField:
                 if P.Name.startswith("Bond") and not self.isPermaFrost(P):
                     P.Estimate() # initial guess based on Gaussian estimation
                     P.UnfreezeParam()
-            if not self.useBondHessian: print 'Turning of Hessian Descent while optimizing bonds'
+            if not self.useBondHessian: print ' Turning of Hessian Descent while optimizing bonds'
             Opt.UseHessian = self.useBondHessian # switch off hessian if bond distributions have multiple peaks
             Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['Bond'])
         # switch hessian back on regardless of if it was on or off during bond optimization
@@ -105,7 +122,7 @@ class Srel(object):
         # angles
         if OptStages.__contains__('Angle'):
             Opt.Iter = 0
-            print 'Optimizing Angles...'
+            self.ReportStage('Angle')
             for P in self.Sys.ForceField: P.FreezeParam()
             for P in self.Sys.ForceField:
                 if P.Name.startswith("Angle") and not self.isPermaFrost(P):
@@ -114,7 +131,7 @@ class Srel(object):
         # torsions
         if OptStages.__contains__('Torsion'):
             Opt.Iter = 0
-            print 'Optimizing Torsions...'
+            self.ReportStage('Torsion')
             for P in self.Sys.ForceField: P.FreezeParam()
             for P in self.Sys.ForceField:
                 if P.Name.startswith("Torsion") and not self.isPermaFrost(P):
@@ -123,7 +140,7 @@ class Srel(object):
         # nonbond
         if OptStages.__contains__('NonBond'):
             Opt.Iter = 0
-            print 'Optimizing NonBonds...'
+            self.ReportStage('NonBond')
             for P in self.Sys.ForceField: P.FreezeParam()
             for P in self.Sys.ForceField:
                 if P.Name.startswith("NonBond") and not self.isPermaFrost(P):
@@ -132,7 +149,7 @@ class Srel(object):
         # simultaneous optimization
         if OptStages.__contains__('all'):
             Opt.Iter = 0
-            print 'Optimizing all...'
+            self.ReportStage('all')
             for P in self.Sys.ForceField: P.FreezeParam()
             for P in self.Sys.ForceField:
                 if not P.Name.startswith("Bond") and not self.isPermaFrost(P):
@@ -146,7 +163,7 @@ class Srel(object):
         '''optimize Go potentials with a fixed backbone and a traj'''
         # turn off spline constraints for all backbone potentials
         OptSet = ['NonBondNative'] if not OptNonNative else ['NonBondNative', 'NonBondNonNative']
-        print '\nTurning off constraints for backbone potentials...'
+        print ' Turning off constraints for backbone potentials...'
         for P in self.Sys.ForceField:
             if not P.IsSpline: continue
             # constrain all backbone splines
@@ -157,13 +174,13 @@ class Srel(object):
                 if Constrain: print 'Constraining potential: %s' % P.Name
                 else: P.ConstrainSpline = False
         # treat inner core (don't do this for frozen potentials)
-        print 'Treating inner core for spline Go potentials...'
+        print ' Treating inner core for spline Go potentials...'
         for P in self.Sys.ForceField:
             if ["NonBondNative", "NonBondNonNative"].__contains__(P.Name) and P.IsSpline and not self.isPermaFrost(P):
                 P.EneInner = "20kT"
                 P.EneSlopeInner = None
         # set up optimizer object
-        print '\nStarting Srel optimization for Go model...'
+        print ' Starting optimization for Go model...'
         Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         Opt = sim.srel.UseLammps(Opt)
         Opt.TempFileDir = os.getcwd()
@@ -175,9 +192,9 @@ class Srel(object):
         # optimize
         Opt.Iter = 0
         if not OptNonNative:
-            print 'Optimizing only native Go interactions...'
+            self.ReportStage('Native NonBonds')
         else:
-            print 'Optimizing ALL Go interactions...'
+            self.ReportStage('Native and Non-Native NonBonds')
         for P in self.Sys.ForceField: P.FreezeParam()
         for P in self.Sys.ForceField:
             if OptSet.__contains__(P.Name) and not self.isPermaFrost(P):

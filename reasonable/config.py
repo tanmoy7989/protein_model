@@ -24,4 +24,8 @@ class Config(object):
     def hasPseudoGLY(self):
         return not(self.AtomS['GLY'] is None)
     
+    def hasSpecialGLYParams(self):
+        return (self.hasSpecialBBGLYAngles or self.hasSpecialBBGLYTorsions)
 
+    def hasSpecialPROParams(self):
+        return (self.hasSpecialBBPROAngles or self.hasSpecialBBPROTorsions)

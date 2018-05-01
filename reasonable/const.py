@@ -51,8 +51,8 @@ ResMass = {'ALA' :  71.079,
 AtomN = sim.chem.AtomType('N', Mass = AtomMass['N'])
 AtomC = sim.chem.AtomType('C', Mass = AtomMass['C'])
 AtomO = sim.chem.AtomType('O', Mass = AtomMass['C'] + AtomMass['O'])
-AtomC_GLY = sim.chem.AtomType('C', Mass = AtomMass['C'])
-AtomC_PRO = sim.chem.AtomType('C', Mass = AtomMass['C'])
+AtomC_GLY = sim.chem.AtomType('C_GLY', Mass = AtomMass['C'])
+AtomC_PRO = sim.chem.AtomType('C_PRO', Mass = AtomMass['C'])
 AtomS_GLY = sim.chem.AtomType('S_GLY', Mass = 1.008)
 DfltAtomS = {}
 for r, mass in ResMass.iteritems():
@@ -90,7 +90,9 @@ DEFAULTS = dict(
             MinBondOrd = 5,
             NKnot = 40,
             SPCut = 10.0,
+            hasSpecialBBGLYAngles = False,
             hasSpecialBBGLYTorsions = False,
+            hasSpecialBBPROAngles = False,
             hasSpecialBBPROTorsions = False,
 
             # Go models

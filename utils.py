@@ -42,7 +42,9 @@ GoFFTYPES = ['ff_leu15_protg_spline',
  
 # important master paths and metadata files
 FFDIR = os.path.expanduser('~/protein_model/cgff')
-FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/ff_metadata.txt')
+#FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/ff_metadata.txt')
+# use this version of FFMETADATAFILE while debugmatrix is running
+FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/debugmatrix/ff_metadata.txt')
 NATIVEDIR = os.path.expanduser('~/protein_model/native_struct/mapped')
 NATIVEMETADATAFILE = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
 
@@ -56,8 +58,8 @@ def parseBBFF(BBType, MasterDir = None):
     return ret
 
 def parseGoFF(FFType, MasterDir = None):
-    if not GoFFTYPES.__contains__(FFType):
-        raise IOError('Requested Go forcefield not present in repository')
+    #if not GoFFTYPES.__contains__(FFType):
+    #    raise IOError('Requested Go forcefield not present in repository')
     if MasterDir is None: MasterDir = os.path.join(FFDIR, 'ffs')
     FF_File = os.path.join(MasterDir, FFType + '.dat')
     mdata = eval(file(FFMETADATAFILE).read())

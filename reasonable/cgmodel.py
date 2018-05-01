@@ -44,7 +44,7 @@ def PrepSys(Sys, TempSet = RoomTemp):
 def loadParam(Sys, FF_file):
     # loads only those interactions in the current system
     # if they are also present in the supplied ff file
-    print 'Loading parameters from %s' % FF_file.split('/')[-1]
+    print '\nLoading parameters from %s' % FF_file.split('/')[-1]
     FileParamDict = {}
     lines = file(FF_file).readlines()
     inds = [lines.index(line) for line in lines if line.startswith('>>> POTENTIAL')]

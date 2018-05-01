@@ -27,6 +27,8 @@ class REMD(object):
     ''' runs REMD and multiplexes trajectories according to temperature using LAMMPS
         input MD iterations and timestep are all measured in femtoseconds'''
     def __init__(self, p, Sys, cfg = None, Prefix = None, InitPdb = None, Temps = None, TempFile = None, OutDir = os.getcwd() , **kwargs):
+        print '\nMD SIMULATION'
+        print '=============\n'
         # read in protein and Sys objects
         self.p = p
         self.Sys = Sys
@@ -64,7 +66,7 @@ class REMD(object):
         tmpPdb = os.path.join(os.getcwd(), 'tmp.pdb')
         if self.InitPdb is None: self.InitPdb = 'init.pdb'
         if not os.path.isfile(self.InitPdb):
-            if Verbose: print '\nGenerating fully extended initial AA structure...'
+            print ' Generating fully extended initial AA structure. ', 
             # create an ALL-ATOM protein class object for the given sequence
             pobj = protein.ProteinClass(Seq = self.p.Seq)
             pobj.WritePdb(tmpPdb)
@@ -73,7 +75,7 @@ class REMD(object):
             # remove all-atom pdb
             if os.path.isfile(tmpPdb): os.remove(tmpPdb)
             del pobj
-        print '\nUsing init conf as generated in : %s' % self.InitPdb
+        print ' Using init conf as generated in : %s\n' % self.InitPdb
         pobj = protein.ProteinClass(self.InitPdb)
         initpos = pobj.Pos
         return initpos
@@ -125,7 +127,7 @@ class REMD(object):
 def Pickle(RepInd, Prefix):
     ''' pickles sim-style traj objects from each replica traj'''
     # filenames
-    print 'Pickling Replica %d' % RepInd
+    print ' Pickling Replica %d' % RepInd
     TrajFile = Prefix + '.lammpstrj'
     LogFile = Prefix + 'lammps.log'
     myTrajFn = TrajFile + '.%d.gz' % RepInd
@@ -150,7 +152,7 @@ def Reorder(Temp, Prefix, TempFile, NStepsEquil, NStepsProd, NStepsSwap, StepFre
     MultiTrajFn = FMT['TRAJ'] % (Prefix, Temp)
     MultiEneFn = FMT['ENE'] % (Prefix, Temp)
     if os.path.isfile(MultiTrajFn) and os.path.isfile(MultiEneFn): return
-    print 'Reordering replica frames at temperature %3.2f' %  Temp
+    print ' Reordering replica frames at temperature %3.2f' %  Temp
     # collect all replica indices at this temp
     LogFile = Prefix + 'lammps.log'
     RepIndsMaster = [np.where(x[1:] == TempInd)[0][0] for x in np.loadtxt(LogFile, skiprows = 3)]
@@ -196,6 +198,8 @@ def Reorder(Temp, Prefix, TempFile, NStepsEquil, NStepsProd, NStepsSwap, StepFre
     return 
 
 def ReorderAll(Prefix, NStepsEquil, NStepsProd, NStepsSwap, StepFreq, TempFile = 'temps.txt', ReorderTemps = None):
+    print '\nREORDERING LAMMPS TRAJECTORIES BY TEMPERATURE'
+    print '---------------------------------------------'
     Temps = np.loadtxt(TempFile)
     if ReorderTemps is None: ReorderTemps = Temps
     # pickle all traj in parallel

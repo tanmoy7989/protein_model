@@ -18,15 +18,20 @@ class ProteinNCOS(object):
         sim-style AtomType objects
     '''    
     def __init__(self, cfg, Pdb = None, Seq = None, Model = None, Prefix = 'ncos'):
-        if Verbose: print 'Creating a NCOS protein object...'
+        if Verbose: print 'Initializing a NCOS protein object...'
         # set Prefix
         self.Prefix = Prefix
-        # has special torsion potentials
+        # has special GLY Params
+        self.hasSpecialBBGLYAngles = cfg.hasSpecialBBGLYAngles
         self.hasSpecialBBGLYTorsions = cfg.hasSpecialBBGLYTorsions
+        self.hasSpecialGLYParams = cfg.hasSpecialGLYParams()
+        # has special PRO params
+        self.hasSpecialBBPROAngles = cfg.hasSpecialBBPROAngles
         self.hasSpecialBBPROTorsions = cfg.hasSpecialBBPROTorsions
+        self.hasSpecialPROParams = cfg.hasSpecialPROParams()
         # has special sidechains for glycine
         self.hasPseudoGLY = cfg.hasPseudoGLY()
-        if self.hasSpecialBBGLYTorsions and self.hasPseudoGLY:
+        if self.hasSpecialGLYParams and self.hasPseudoGLY:
             print 'Error: Cannot have pseudo GLY side chain and special GLY BB torsion simultaneously'
             exit()
         # sidechain referencing
@@ -50,6 +55,7 @@ class ProteinNCOS(object):
             self.Chains = []
             self.NChains = None
             self.__SetChains(Seq)
+        print ' ' + ' '.join(self.Seq)
         # sequence book-keeping
         self.ResTypes = list(set(self.Seq))
         self.NRes = len(self.Seq)
@@ -215,11 +221,11 @@ def MakeSys(p, cfg = None, NChains = 1):
     s = ' Added side chain atoms by %s: ' % p.SSRefType
     for i, r in enumerate(p.Seq):
         # backbone atoms
-        if p.hasSpecialBBGLYTorsions:
-            if r == 'GLY': res = [AtomN, AtomC_GLY, AtomO]
-        elif p.hasSpecialBBPROTorsions:
-            if r == 'PRO': res = [AtomN, AtomC_PRO, AtomO]
-        else: res = [AtomN, AtomC, AtomO]
+        res = [AtomN, AtomC, AtomO]
+        if r == 'GLY':
+            if p.hasSpecialGLYParams: res = [AtomN, AtomC_GLY, AtomO]
+        if r == 'PRO':
+            if p.hasSpecialPROParams: res = [AtomN, AtomC_PRO, AtomO]
         # sidechain atoms
         # ref by name
         if p.SSRefType == 'name':

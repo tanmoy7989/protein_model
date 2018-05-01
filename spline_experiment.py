@@ -9,13 +9,23 @@ import reasonable as cg
 CURRDIR = os.getcwd()
 RoomTemp = 300.
 
-hasPseudoGLY = True
-
 PdbName = sys.argv[1]
 FFType = sys.argv[2]
 OutDir = os.path.abspath(sys.argv[3])
 NReplica = int(sys.argv[4]) if len(sys.argv) > 4 else 8
-    
+
+# forcefield metadata
+FF_File, FFMetadata = utils.parseGoFF(FFType, MasterDir = os.path.expanduser('~/protein_model/cgff/ffs/debugmatrix'))
+
+# has pseudoGLY?
+hasPseudoGLY = FFMetadata['hasPseudoGLY']
+
+# has special backbone params for GLY?
+hasSpecialGLYParams = FFMetadata['hasSpecialGLYParams']
+
+# has complete or reduced set of backbone-sidechain interactions?
+NCOSType = FFMetadata['NCOSType']
+
 # parse paths etc
 OutDir = os.path.join(OutDir, PdbName)
 if not os.path.isdir(OutDir): os.system('mkdir -p %s' % OutDir)
@@ -32,7 +42,6 @@ try:
 except IOError:
     print 'Utils Error: Requested Top clust pdb does not exist'
     AATopClustPdb = None
-FF_File, FFMetadata = utils.parseGoFF(FFType)
 Prefix = 'prot_' + PdbName
 
 # backbone forcefield parameters
@@ -42,7 +51,6 @@ NKnot = FFMetadata['NKnot']
 SPCut = FFMetadata['Cut']
 NativeCut = FFMetadata['NativeCut']
 Bonded_NCOSType = FFMetadata['Bonded_NCOSType']
-NCOSType = FFMetadata['NCOSType']
 
 # temp schedule
 TLow = 270.
@@ -83,7 +91,11 @@ cfg = config.Config()
 hasPseudoGLY = %(HASPSEUDOGLY)d
 if hasPseudoGLY: cfg.AtomS['GLY'] = const.AtomS_GLY
 
-# backbone settings (assumes single repulsive nonbonded BB-S potential by default)
+# special backbone angle and torsion params for GLY
+cfg.hasSpecialBBGLYAngles = %(HASSPECIALGLYPARAMS)d
+cfg.hasSpecialBBGLYTorsions = %(HASSPECIALGLYPARAMS)d
+
+# backbone settings
 cfg.MinBondOrd = %(MINBONDORD)d
 cfg.NKnot = %(NKNOT)d
 cfg.SPCut = %(SPCUT)g
@@ -157,31 +169,32 @@ date
 '''
 # dict for filling md script template
 d1 = {
-      'PREFIX'          : Prefix,
-      'NATIVEPDB'       : NativePdb,
+      'PREFIX'                  : Prefix,
+      'NATIVEPDB'               : NativePdb,
         
-      'FF_FILE'         : FF_File,
-      'MINBONDORD'      : MinBondOrd,
-      'NKNOT'           : NKnot,
-      'SPCUT'           : SPCut,
-      'BONDED_NCOSTYPE' : Bonded_NCOSType,
-      'NCOSTYPE'        : NCOSType,
+      'FF_FILE'                 : FF_File,
+      'MINBONDORD'              : MinBondOrd,
+      'NKNOT'                   : NKnot,
+      'SPCUT'                   : SPCut,
+      'BONDED_NCOSTYPE'         : Bonded_NCOSType,
+      'NCOSTYPE'                : NCOSType,
       
-      'NATIVECUT'       : NativeCut,
+      'NATIVECUT'               : NativeCut,
       
-      'HASPSEUDOGLY'    : hasPseudoGLY,
+      'HASPSEUDOGLY'            : hasPseudoGLY,
+      'HASSPECIALGLYPARAMS'     : hasSpecialGLYParams,
 
-      'TLOW'            : TLow,
-      'THIGH'           : THigh,
-      'NREPLICA'        : NReplica,
-      'TEMPSET'         : TempSet,
+      'TLOW'                    : TLow,
+      'THIGH'                   : THigh,
+      'NREPLICA'                : NReplica,
+      'TEMPSET'                 : TempSet,
         
-      'TIMESTEP'        : TimeStep,
-      'NSTEPSMIN'       : NStepsMin,
-      'NSTEPSEQUIL'     : NStepsEquil,
-      'NSTEPSPROD'      : NStepsProd,
-      'NSTEPSSWAP'      : NStepsSwap,
-      'STEPFREQ'        : StepFreq
+      'TIMESTEP'                : TimeStep,
+      'NSTEPSMIN'               : NStepsMin,
+      'NSTEPSEQUIL'             : NStepsEquil,
+      'NSTEPSPROD'              : NStepsProd,
+      'NSTEPSSWAP'              : NStepsSwap,
+      'STEPFREQ'                : StepFreq
     }
 
 # dict for filling job script template
