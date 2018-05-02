@@ -41,7 +41,7 @@ def findProchiralH_GLY(PosN, PosCA, PosC, PosH):
 
 def AddH_GLY(p):
     ''' hydrogenates the GLY residues iff they don't already have two hydrogens'''
-    Filter = lambda ResName, AtomName: (ResName == 'GLY' and AtomName.__contains__('HA'))
+    Filter = lambda ResName, AtomName: (ResName == 'GLY' and 'HA' in AtomName)
     for i, r in enumerate(p.Seq):
         if not r == 'GLY': continue
         # does this GLY have hydrogens
@@ -80,9 +80,9 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
     else:
         NCGAtoms = 4 * len(Seq)
     # Masks
-    DecapFilter = lambda ResName, AtomName : not ( (NCaps + CCaps).__contains__(ResName) )    
-    SFilter_Other = lambda ResName, AtomName : not (AtomName == 'N' or AtomName == 'CA' or AtomName == 'C' or AtomName == 'O' or AtomName.__contains__('H'))
-    SFilter_GLY = lambda ResName, AtomName: (ResName == 'GLY' and AtomName.__contains__('HA'))
+    DecapFilter = lambda ResName, AtomName : not ( ResName in (NCaps + CCaps) )    
+    SFilter_Other = lambda ResName, AtomName : not (AtomName == 'N' or AtomName == 'CA' or AtomName == 'C' or AtomName == 'O' or 'H' in AtomName)
+    SFilter_GLY = lambda ResName, AtomName: (ResName == 'GLY' and 'HA' in AtomName)
     # Parse atom indices based on masks
     NInds = p.AtomInd(AtomName = 'N', UserFunc = DecapFilter)
     CAInds = p.AtomInd(AtomName = 'CA', UserFunc = DecapFilter)

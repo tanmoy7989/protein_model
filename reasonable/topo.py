@@ -2,7 +2,7 @@
 
 ''' Builds the toplogy of the sim-style Sys object '''
 
-import os, numpy as np, copy, string
+import os, numpy as np, copy, string, cPickle as pickle
 from const import *
 import sim
 import protein
@@ -55,7 +55,7 @@ class ProteinNCOS(object):
             self.Chains = []
             self.NChains = None
             self.__SetChains(Seq)
-        print ' ' + ' '.join(self.Seq)
+        print 'Sequence: %s' % (' '.join(self.Seq))
         # sequence book-keeping
         self.ResTypes = list(set(self.Seq))
         self.NRes = len(self.Seq)
@@ -218,7 +218,7 @@ def MakeSys(p, cfg = None, NChains = 1):
         print 'Generating backbone topology...'
     # generate the molecule as a list of lists
     AtomList = [ [] for i in range(p.NChains)]
-    s = ' Added side chain atoms by %s: ' % p.SSRefType
+    s = 'Adding side chain atoms by %s: ' % p.SSRefType
     for i, r in enumerate(p.Seq):
         # backbone atoms
         res = [AtomN, AtomC, AtomO]
@@ -258,11 +258,11 @@ def MakeSys(p, cfg = None, NChains = 1):
     # create System
     World = sim.chem.World(MolList, Dim = 3, Units = sim.units.AtomicUnits)
     Sys = sim.system.System(World, Name = p.Prefix)
-    if p.NChains > 1: print ' Creating oligomer...'
+    if p.NChains > 1: print 'Creating oligomer...'
     # add molecules to the system
     for i, Mol in enumerate(MolList):
         if Verbose and p.NChains > 1:
-            print ' Added chain %d' % i
+            print 'Added chain %d' % i
         Sys += Mol.New()
     return Sys
 

@@ -92,7 +92,7 @@ class P_Sidechain(object):
         if Epsilon is None: Epsilon = self.cfg.NativeEpsilon
         P = sim.potential.LJ(self.Sys, Filter = Filter_Native, Cut = Cut, Sigma = Sigma, Epsilon = Epsilon, Shift = True, Label = 'NonBondNative')
         # populate
-        if Verbose: print ' Using Sigma = %2.2f A, Epsilon = %2.2f kT, Cutoff = %2.2f A' % (Sigma, Epsilon / (kB * RoomTemp), Cut)
+        if Verbose: print 'Using Sigma = %2.2f A, Epsilon = %2.2f kT, Cutoff = %2.2f A' % (Sigma, Epsilon / (kB * RoomTemp), Cut)
         ff = [P]
         return ff
 
@@ -103,7 +103,7 @@ class P_Sidechain(object):
         if Cut is None: Cut = self.cfg.NativeCut
         P = sim.potential.PairSpline(self.Sys, Filter = Filter_Native, Cut = Cut, NKnot = self.NKnot, Label = 'NonBondNative')
         # populate
-        if Verbose: print ' Using Cutoff = %2.2f A' % Cut
+        if Verbose: print 'Using Cutoff = %2.2f A' % Cut
         ff = [P]
         return ff
 
@@ -115,13 +115,13 @@ class P_Sidechain(object):
         # now determine force constant
         if FConst is None: FConst = 0.5 * 1.0 / (2. * HarmonicFluct**2) # since sim uses k and not k/2
         FConst *= (kB * RoomTemp)
-        if Verbose: print ' Using FConst = %2.2f kT, HarmonicFluct = %2.2f A' % (FConst / (kB * RoomTemp), HarmonicFluct) 
+        if Verbose: print 'Using FConst = %2.2f kT, HarmonicFluct = %2.2f A' % (FConst / (kB * RoomTemp), HarmonicFluct) 
         P = []
         for k, (i,j) in enumerate(self.ContactDict['c_native']):
             # ignore residue pairs not included in Topo2AID, while making filters
             # this ignores glycines if they are not included as pseudo side chains
             if not self.Topo2AID_Native.__contains__( (i,j) ): continue
-            if Verbose: print ' Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], self.ContactDict['d_ss_native'][k])
+            if Verbose: print 'Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], self.ContactDict['d_ss_native'][k])
             m, n = self.Topo2AID_Native[(i,j)]
             # create filters
             NAID = self.Sys.World.NAID
@@ -143,13 +143,13 @@ class P_Sidechain(object):
         Filter_NonNative = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = self.NonNativePairs, MinBondOrd = self.MinBondOrd)
         if Verbose: print 'Generating sidechain-sidechain nonbonded WCA potentials between non-native contacts.'
         if Sigma is None:
-            if Verbose: print ' Non-native sigma not provided. Reverting to Auto-Sigma initially'
+            if Verbose: print 'Non-native sigma not provided. Reverting to Auto-Sigma initially'
             Sigma = self.ContactDict['d_native'].min() ** (2**(-1/6.))
         if Cut is None: Cut = Sigma * (2**(1/6.)) # WCA
         if Epsilon is None: Epsilon = self.cfg.NonNativeEpsilon
         P = sim.potential.LJ(self.Sys, Filter = Filter_NonNative, Cut = Cut, Sigma = Sigma, Epsilon = Epsilon, Shift = True, Label = 'NonBondNonNative')
         # populate
-        if Verbose: print ' Using Sigma = %2.2f A, Epsilon = %2.2f kT, Cutoff = %2.2f A' % (Sigma, Epsilon / (kB * RoomTemp), Cut)
+        if Verbose: print 'Using Sigma = %2.2f A, Epsilon = %2.2f kT, Cutoff = %2.2f A' % (Sigma, Epsilon / (kB * RoomTemp), Cut)
         ff = [P]
         return ff
 
@@ -161,7 +161,7 @@ class P_Sidechain(object):
         if Cut is None: Cut = seld.ContactDict['d_native'].min()
         P = sim.potential.PairSpline(self.Sys, Filter = Filter_NonNative, Cut = Cut, NKnot = self.NKnot, Label = 'NonBondNonNative')
         # populate
-        if Verbose: print ' Using Cutoff = %2.2f A' % Cut
+        if Verbose: print 'Using Cutoff = %2.2f A' % Cut
         ff = [P]
         return ff
 

@@ -67,7 +67,7 @@ class P_Backbone(object):
         Pair_CO = sim.potential.PairSpline(self.Sys, Filter = Filter_CO_p, Label = 'NonBondCO', NKnot = self.NKnot, Cut = self.SPCut)
         # create special angle and torsion potentials for gly and pro
         if self.hasSpecialBBGLYAngles:
-            if self.p.Seq.__contains__('GLY'):
+            if 'GLY' in self.p.Seq:
                 if Verbose: print 'Generating special backbone angle potentials for GLY...'
                 Filter_NCO_GLY = sim.atomselect.PolyFilter([AtomN, AtomC_GLY, AtomO], Bonded = True)
                 Filter_CON_GLY = sim.atomselect.PolyFilter([AtomC_GLY, AtomO, AtomN], Bonded = True)
@@ -76,14 +76,14 @@ class P_Backbone(object):
                 Angle_CON_GLY = sim.potential.AngleSpline(self.Sys, Filter = Filter_CON_GLY, Label = 'AngleCON_GLY', NKnot = self.NKnot)
                 Angle_ONC_GLY = sim.potential.AngleSpline(self.Sys, Filter = Filter_ONC_GLY, Label = 'AngleONC_GLY', NKnot = self.NKnot)
         if self.hasSpecialBBGLYTorsions:
-            if self.p.Seq.__contains__('GLY'):
+            if 'GLY' in self.p.Seq:
                 if Verbose: print 'Generating special backbone torsional potentials for GLY...'
                 Filter_NCON_GLY = sim.atomselect.PolyFilter([AtomN, AtomC_GLY, AtomO, AtomN], Bonded = True)
                 Filter_ONCO_GLY = sim.atomselect.PolyFilter([AtomO, AtomN, AtomC_GLY, AtomO], Bonded = True)
                 Torsion_NCON_GLY = sim.potential.TorsionSpline(self.Sys, Filter = Filter_NCON_GLY, Label = 'TorsionNCON_GLY', NKnot = self.NKnot)
                 Torsion_ONCO_GLY = sim.potential.TorsionSpline(self.Sys, Filter = Filter_ONCO_GLY, Label = 'TorsionONCO_GLY', NKnot = self.NKnot)
         if self.hasSpecialBBPROAngles:
-            if self.p.Seq.__contains__('PRO'):
+            if 'PRO' in self.p.Seq:
                 if Verbose: print 'Generating special backbone angle potentials for PRO...'
                 Filter_NCO_PRO = sim.atomselect.PolyFilter([AtomN, AtomC_PRO, AtomO], Bonded = True)
                 Filter_CON_PRO = sim.atomselect.PolyFilter([AtomC_PRO, AtomO, AtomN], Bonded = True)
@@ -92,7 +92,7 @@ class P_Backbone(object):
                 Angle_CON_PRO = sim.potential.AngleSpline(self.Sys, Filter = Filter_CON_PRO, Label = 'AngleCON_PRO', NKnot = self.NKnot)
                 Angle_ONC_PRO = sim.potential.AngleSpline(self.Sys, Filter = Filter_ONC_PRO, Label = 'AngleONC_PRO', NKnot = self.NKnot)
         if self.hasSpecialBBPROTorsions:
-            if self.p.Seq.__contains__('PRO'):
+            if 'PRO' in self.p.Seq:
                 if Verbose: print 'Generating special backbone torsion potentials for PRO...'
                 Filter_NCON_PRO = sim.atomselect.PolyFilter([AtomN, AtomC_PRO, AtomO, AtomN], Bonded = True)
                 Filter_ONCO_PRO = sim.atomselect.PolyFilter([Atomo, AtomN, AtomC_PRO, AtomO], Bonded = True)
@@ -104,11 +104,11 @@ class P_Backbone(object):
               Torsion_NCON, Torsion_CONC, Torsion_ONCO,
               Pair_NN, Pair_CC, Pair_OO, Pair_NC, Pair_NO, Pair_CO]
         if self.hasSpecialBBGLYAngles:
-            if self.p.Seq.__contains__('GLY'): ff.extend([Angle_NCO_GLY, Angle_CON_GLY, Angle_ONC_GLY])
+            if 'GLY' in self.p.Seq: ff.extend([Angle_NCO_GLY, Angle_CON_GLY, Angle_ONC_GLY])
         if self.hasSpecialBBGLYTorsions:
-            if self.p.Seq.__contains__('GLY'): ff.extend([Torsion_NCON_GLY, Torsion_ONCO_GLY])
+            if 'GLY' in self.p.Seq: ff.extend([Torsion_NCON_GLY, Torsion_ONCO_GLY])
         if self.hasSpecialBBPROAngles:
-            if self.p.Seq.__contains__('PRO'): ff.extend([Angle_NCO_PRO, Angle_CON_PRO, Angle_ONC_PRO])
+            if 'PRO' in self.p.Seq: ff.extend([Angle_NCO_PRO, Angle_CON_PRO, Angle_ONC_PRO])
         if self.hasSpecialBBPROTorsions:
-            if self.p.Seq.__contains__('PRO'): ff.extend([Torsion_NCON_PRO, Torsion_ONCO_PRO])
+            if 'PRO' in self.p.Seq: ff.extend([Torsion_NCON_PRO, Torsion_ONCO_PRO])
         return ff

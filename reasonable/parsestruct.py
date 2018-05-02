@@ -17,7 +17,7 @@ def ParsePdb(p, ResContactList = None):
     Can supply a ResContactList to force using those native contacts'''
     if Verbose: print 'Parsing native structure...'
     if not ResContactList is None:
-        if Verbose: print ' Not calculating ResContactList. Using supplied.'
+        if Verbose: print 'Not calculating ResContactList. Using supplied.'
     ResPos = p.GetResPos()
     Pos = p.Pos
     if ResContactList is None: ResContactList = p.GetResContactList()
@@ -32,7 +32,7 @@ def ParsePdb(p, ResContactList = None):
     fnn = open(p.Prefix+'_nonnativecontact.txt', 'w')
     fn.write('#Res_i Res_j d_com d_ss\n')
     fnn.write('#Res_i Res_j d_com d_ss\n')
-    s = ' Used Alpha-Carbon as side chain for residues: '
+    s = 'Used Alpha-Carbon as side chain for residues: '
     s0 = copy.copy(s)
     for i in range(len(p.Seq)-1):
         for j in range(i+1, len(p.Seq)):
@@ -46,10 +46,10 @@ def ParsePdb(p, ResContactList = None):
             n = SInds[j]
             if p.AtomSbyNum[i] is None:
                 this_s = '%3d (%3s)' % (i, res_i)
-                if not s.__contains__(this_s): s += this_s + '  '
+                if not this_s in s: s += this_s + '  '
             if p.AtomSbyNum[j] is None:
                 this_s = '%3d (%3s)' % (j, res_j)
-                if not s.__contains__(this_s): s += this_s + '  '
+                if not this_s in s: s += this_s + '  '
             # get com distance between residues
             d_com_ij = ResPos[j] - ResPos[i]
             d_com = np.sqrt(np.sum(d_com_ij * d_com_ij))
@@ -57,7 +57,7 @@ def ParsePdb(p, ResContactList = None):
             d_ss_mn = Pos[n] - Pos[m]
             d_ss = np.sqrt(np.sum(d_ss_mn * d_ss_mn))
             # native contacts
-            if ResContactList.__contains__( (i,j) ):
+            if (i,j) in ResContactList:
                 c_native.append((i, j))
                 d_native.append(d_com)
                 d_ss_native.append(d_ss)
@@ -122,7 +122,7 @@ def makeMatrix(p, ContactDict, Sys):
         Topo2AID_Native[ (i,j) ] = (m, n)
     
     # non native contacts
-    if Verbose: print 'Generating non-native filters...'
+    if Verbose: print '\nGenerating non-native filters...'
     for k, (i,j) in enumerate(ContactDict['c_nonnative']):
         # check if a residue has a missing sidechain (usually glycines)
         # such residues are ignored in making the contact matrix

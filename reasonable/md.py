@@ -66,7 +66,7 @@ class REMD(object):
         tmpPdb = os.path.join(os.getcwd(), 'tmp.pdb')
         if self.InitPdb is None: self.InitPdb = 'init.pdb'
         if not os.path.isfile(self.InitPdb):
-            print ' Generating fully extended initial AA structure. ', 
+            print 'Generating fully extended initial AA structure. ', 
             # create an ALL-ATOM protein class object for the given sequence
             pobj = protein.ProteinClass(Seq = self.p.Seq)
             pobj.WritePdb(tmpPdb)
@@ -75,7 +75,7 @@ class REMD(object):
             # remove all-atom pdb
             if os.path.isfile(tmpPdb): os.remove(tmpPdb)
             del pobj
-        print ' Using init conf as generated in : %s\n' % self.InitPdb
+        print 'Using init conf as generated in : %s\n' % self.InitPdb
         pobj = protein.ProteinClass(self.InitPdb)
         initpos = pobj.Pos
         return initpos
@@ -127,7 +127,7 @@ class REMD(object):
 def Pickle(RepInd, Prefix):
     ''' pickles sim-style traj objects from each replica traj'''
     # filenames
-    print ' Pickling Replica %d' % RepInd
+    print 'Pickling Replica %d' % RepInd
     TrajFile = Prefix + '.lammpstrj'
     LogFile = Prefix + 'lammps.log'
     myTrajFn = TrajFile + '.%d.gz' % RepInd
@@ -199,7 +199,7 @@ def Reorder(Temp, Prefix, TempFile, NStepsEquil, NStepsProd, NStepsSwap, StepFre
 
 def ReorderAll(Prefix, NStepsEquil, NStepsProd, NStepsSwap, StepFreq, TempFile = 'temps.txt', ReorderTemps = None):
     print '\nREORDERING LAMMPS TRAJECTORIES BY TEMPERATURE'
-    print '---------------------------------------------'
+    print '=============================================\n'
     Temps = np.loadtxt(TempFile)
     if ReorderTemps is None: ReorderTemps = Temps
     # pickle all traj in parallel

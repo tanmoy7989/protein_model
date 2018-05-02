@@ -15,9 +15,9 @@ Verbose = True
 def Preamble(s = None):
     if s is None:
         s = '''
-================================================================================================
-(R)elative (E)ntropy (A)ssisted, (S)tructure (O)ptimized, (N)o (A)dded (B)ioinformatic (LE)xicon
-================================================================================================
+\t\t\t\t================================================================================================
+\t\t\t\t(R)elative (E)ntropy (A)ssisted, (S)tructure (O)ptimized, (N)o (A)dded (B)ioinformatic (LE)xicon
+\t\t\t\t================================================================================================
 '''
     return s
 
@@ -60,7 +60,7 @@ def loadParam(Sys, FF_file):
     # see if Sys has these potentials
     hasPotentials = []
     for P in Sys.ForceField:
-        if FileParamDict.keys().__contains__(P.Name):
+        if P.Name in FileParamDict.keys():
             P.SetParam(**(FileParamDict[P.Name]))
             hasPotentials.append(P.Name)
     s = ' Over-writing potentials %s' % (', '.join(hasPotentials))
