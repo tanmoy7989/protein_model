@@ -27,7 +27,7 @@ class REMD(object):
     ''' runs REMD and multiplexes trajectories according to temperature using LAMMPS
         input MD iterations and timestep are all measured in femtoseconds'''
     def __init__(self, p, Sys, cfg = None, Prefix = None, InitPdb = None, Temps = None, TempFile = None, OutDir = os.getcwd() , **kwargs):
-        print '\nMD SIMULATION'
+        print '\n\nMD SIMULATION'
         print '=============\n'
         # read in protein and Sys objects
         self.p = p
