@@ -279,3 +279,74 @@ def makeSplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp, DelFrac =
     if Verbose: print '\nCompiling model...'
     Sys.Load()
     return p, Sys
+
+
+def makeSplineGoMultiSys(NativePdb, cfg, NSys = None, MasterPrefix = None, TempSet = None):
+    print Preamble()
+    # parse all lists
+    if NSys is None: NSys = len(NativePdb)
+    else:
+        if not isinstance(NativePdb, list):
+            NativePdb = [NativePdb] * NSys 
+    if not isinstance(cfg, list): cfg = [cfg] * NSys
+    if not isinstance(TempSet, list):
+        if TempSet is None: TempSet = [RoomTemp] * NSys
+        else: TempSet = [TempSet] * NSys
+    # ensure that sidechains are referenced according to residue number
+    for i in range(NSys): cfg[i].SSRefType = 'number'
+    print 'Creating %d-system Go model ensemble...' % NSys 
+    # create the systems
+    pList = []
+    SysList = []
+    for i in range(NSys):
+        print '\nENSEMBLE SYSTEM: %d' % i
+        print '==================='
+        # set Prefix
+        Prefix = MasterPrefix + '_%d' % i
+        # create system topology
+        p = topo.ProteinNCOS(Pdb = NativePdb[i], cfg = cfg[i], Prefix = Prefix)
+        pList.append(p)
+        # parse native struct for native contacts in given pdb
+        ps.Verbose = False
+        ContactDict = ps.ParsePdb(p)
+        # create Sys object 
+        Sys = topo.MakeSys(p = p, cfg = cfg[i])
+        ff = []
+        # create backbone potentials
+        BB = bb.P_Backbone(p, Sys, cfg = cfg[i])
+        ff.extend(BB.BB_0())
+        # create backbone-sidechain potentials
+        BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg[i])
+        # 1-alphabet bonded potentials
+        if cfg[i].Bonded_NCOSType == 0:
+            print 'ERROR: Multi-alphabet models not implemented yet'
+            exit()
+        if cfg[i].Bonded_NCOSType == 1: ff.extend(BB_S.BB_S_Bonded_1())
+        # 1-alphabet or constant repulsive nonbonded potentials
+        if cfg[i].NCOSType == 0:
+            print 'ERROR: Multi-alphabet models not implemented yet'
+            exit()
+        if cfg[i].NCOSType == 1: ff.extend(BB_S.BB_S_1())
+        if cfg[i].NCOSType == 2: ff.extend(BB_S.BB_S_2())
+        # create sidechain-sidechain potentials
+        SS = ss.P_Sidechain(p, Sys, cfg = cfg[i], ContactDict = ContactDict)
+        # native contacts
+        cfg[i].NativeType = 1
+        ff.extend(SS.Go_native_1(Cut = cfg[i].NativeCut))
+        # non-native contacts
+        # Note: the non-native cutoff needs to be supplied carefully to be compatible
+        # as a WCA with the supplied sigma
+        if not cfg[i].NonNativeType == -1:
+            cfg[i].NonNativeType = 0
+            ff.extend(SS.Go_nonnative_0())
+        # populate forcefield
+        Sys.ForceField.extend(ff)
+        # set up other system properties
+        PrepSys(Sys, TempSet = TempSet[i])
+        SysList.append(Sys)
+    # compile
+    if Verbose: print '\nCompiling extended ensemble model...'
+    for i, Sys in enumerate(SysList):
+        print '\nSystem: %d' % i
+        Sys.Load()
+    return pList, SysList

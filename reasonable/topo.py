@@ -215,7 +215,7 @@ def MakeSys(p, cfg = None, NChains = 1):
        p is ProteinNCOS type object
        cfg is the global config object '''
     if Verbose == True:
-        print 'Generating backbone topology...'
+        print 'Creating System...'
     # generate the molecule as a list of lists
     AtomList = [ [] for i in range(p.NChains)]
     s = 'Adding side chain atoms by %s: ' % p.SSRefType

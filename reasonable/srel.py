@@ -19,17 +19,14 @@ class Srel(object):
         # read in protein, Sys and traj objects
         print '\nRELATIVE ENTROPY OPTIMIZATION'
         print '=============================\n'
-        self.p = p
         self.AATraj = AATraj
         # is this a single traj Srel optimization or extended ensemble?
         if isinstance(self.AATraj, list):
-            self.__init_MultiSrel(Sys, AATraj)
+            self.__init_MultiSrel(p, Sys, AATraj, cfg = cfg)
         else:
-            self.__init_Srel(Sys, AATraj)
-        # config object
-        self.cfg = cfg if not cfg is None else self.p.cfg
-        # prefix
-        if Prefix is None: Prefix = p.Prefix
+            self.__init_Srel(p, Sys, AATraj, cfg = cfg)
+        # prefix (default is prefix of first cg protein object in ensemble, if ensemble given)
+        if Prefix is None: Prefix = self.Allp[0].Prefix
         self.Prefix = os.path.abspath(os.path.join(OutDir, Prefix))
         # initial conditions (choose to seed with native pos or not)
         # (native pos = RefPosInd-th frame of supplied AA Traj)
@@ -60,18 +57,21 @@ class Srel(object):
         MaxIter = kwargs.get('MaxIter', dict(Bond = None, Angle = None, Torsion = None, NonBond = None, all = None) )
         self.MaxIter = MaxIter
         # Hessian
-        self.useBondHessian = kwargs.get('useBondHessian', True)
+        self.InitCGMaxIter = kwargs.get('InitCGMaxIter', 0)
         # permanently frozen potentials (constant potentials)
         self.PermaFrostList = kwargs.get('PermaFrostList', [])
         # feed in all the settings to the Lammps export
         sim.export.lammps.LammpsExec = LAMMPSEXEC
         sim.export.lammps_REMD.NStepsSwap = self.NStepsSwap
         sim.export.lammps_REMD.TEMPS = self.Temps
-    
-    def __init_Srel(self, Sys, AATraj):
+
+    def __init_Srel(self, p, Sys, AATraj, cfg = None):
         ''' set Sys, Trj and Map for a single traj'''
         self.NTraj = 1
+        self.p = p
+        self.cfg = cfg if not cfg is None else self.p.cfg
         self.Sys = Sys
+        self.Allp = [self.p]
         self.AllSys = [self.Sys]
         self.AATraj = AATraj
         # pickle supplied Traj
@@ -81,11 +81,18 @@ class Srel(object):
         for (i, a) in enumerate(self.Sys.Atom): Map += [sim.atommap.AtomMap(Atoms1 = i, Atom2 = a)]
         self.Map = Map
         
-    def __init_MultiSrel(self, Sys, AATraj):
+    def __init_MultiSrel(self, p, Sys, AATraj, cfg = None):
         '''set Sys, Trj and Map for extended ensemble optimization'''
         self.NTraj = len(AATraj)
+        self.p = p if isinstance(p, list) else [p] * self.NTraj
+        if cfg is None:
+           self.cfg = [x.cfg for x in self.p]
+        else:
+            self.cfg = cfg if isinstance(cfg, list) else [cfg] * self.NTraj
         self.Sys = Sys if isinstance(Sys, list) else [Sys] * self.NTraj
+        self.Allp = self.p
         self.AllSys = self.Sys
+        self.AATraj = AATraj
         # list of pickled Trj objects
         self.Trj = [pickleTraj(Traj) for Traj in self.AATraj]
         # list of 1-1 maps (since all supplied trajs will be already mapped)
@@ -161,6 +168,17 @@ class Srel(object):
         Opt.TempFileDir = os.getcwd()
         Opt.MinReweightFrames = None # need this to work with smaller mod traj
     
+    def Run(self, Opt, Stage):
+        ''' run optimization and see if a initial burst of cg iterations are requested'''
+        MaxIter = self.MaxIter[Stage] if self.MaxIter.has_key(Stage) else None
+        if self.InitCGMaxIter > 0:
+            print 'Turning Hessian off and enforcing conjugate gradient for first %d iterations...' % self.InitCGMaxIter
+            Opt.UseHessian = False
+            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.InitCGMaxIter)
+            Opt.UseHessian = True
+            print 'Turning Hessian back on'
+        Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = MaxIter)
+
             
     def runPolymerSrel(self, OptStages = []):
         ''' optimize a NCOS backbone forcefield from a polypeptide traj'''
@@ -170,11 +188,11 @@ class Srel(object):
         self.SetConstraints()
         # treat inner core
         self.ConstrainInnerCore()
-        # optimizer initialization (constraining all splines)
+        # optimizer initialization
         Opt = sim.srel.OptimizeTrajClass(self.Sys, self.Map, Traj = self.Trj, SaveLoadArgData = True, FilePrefix = self.Prefix, Verbose = True, RefPosInd = self.RefPosInd)
         # prepare the optimizer object
         self.PrepOpt(Opt) 
-        print '\nStarting stagewise optimization for polypeptide...\n'
+        print '\nStarting backbone optimization for polypeptide...\n'
         # stagewise optimization
         # bonds
         if 'Bond' in OptStages:
@@ -185,11 +203,7 @@ class Srel(object):
                 if P.Name.startswith("Bond") and not self.isPermaFrost(P):
                     P.Estimate() # initial guess based on Gaussian estimation
                     P.UnfreezeParam()
-            if not self.useBondHessian: print ' Turning of Hessian Descent while optimizing bonds'
-            Opt.UseHessian = self.useBondHessian # switch off hessian if bond distributions have multiple peaks
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['Bond'])
-        # switch hessian back on regardless of if it was on or off during bond optimization
-        Opt.UseHessian = True
+            self.Run(Opt, 'Bond')
         # angles
         if 'Angle' in OptStages:
             Opt.Iter = 0
@@ -198,7 +212,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if P.Name.startswith("Angle") and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['Angle'])
+            self.Run(Opt, 'Angle')
         # torsions
         if 'Torsion' in OptStages:
             Opt.Iter = 0
@@ -207,7 +221,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if P.Name.startswith("Torsion") and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['Torsion'])
+            self.Run(Opt, 'Torsion')
         # nonbond
         if 'NonBond' in OptStages:
             Opt.Iter = 0
@@ -216,7 +230,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if P.Name.startswith("NonBond") and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['NonBond'])
+            self.Run(Opt, 'NonBond')
         # simultaneous optimization
         if 'all' in OptStages:
             Opt.Iter = 0
@@ -225,9 +239,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if not P.Name.startswith("Bond") and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.MaxIter['all'])
-
-        del Opt
+            self.Run(Opt, 'all') 
 
 
     def runGoSrel(self, Constrain = True, OptNonNative = False):
@@ -258,7 +270,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if P.Name.startswith('NonBondNative') and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
+            self.Run(Opt, 'NonBondNative')
         # non-native interactions
         if 'NonBondNonNative' in OptStages:
             Opt.Iter = 0
@@ -267,7 +279,7 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if P.Name.startswith('NonBondNonNative') and not self.isPermaFrost(P):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
+            self.Run(Opt, 'NonBondNonNative')
         # all Go interactions simultaneously
         if 'Go_all' in OptStages:
             Opt.Iter = 0
@@ -276,15 +288,89 @@ class Srel(object):
             for P in self.Sys.ForceField:
                 if (not self.isPermaFrost(P)) and (P.Name.startswith('NonBondNative') or P.Name.startswith('NonBondNonNative')):
                     P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
-        
-        del Opt
+            self.Run(Opt, 'Go_all')        
 
 
-    def runMutliPolymerSrel(self, OptStages = []):
-        pass
+    def runMultiPolymerSrel(self, OptStages = []):
+        ''' optimize a NCOS backbone forcefield from a an ensemble of polypeptide trajs'''
+        # opt-stages
+        if not OptStages: OptStages = ['Bond', 'Angle', 'Torsion', 'NonBond', 'all']
+        # set constraints
+        self.SetConstraints()
+        # treat inner core
+        self.ConstrainInnerCore()
+        # set up optimizer object
+        print '\nStarting extended ensemble backbone optimization...\n'
+        print 'Creating ensemble of optimizers...'
+        OptList = []
+        for i in range(self.NTraj):
+            print '\nOptimizer %d' % i
+            thisOpt = sim.srel.OptimizeTrajClass(self.Sys[i], self.Map[i], Traj = self.Trj[i], SaveLoadArgData = True,
+                                                 FilePrefix = self.Prefix + '_%d' % i, Verbose = True, RefPosInd = self.RefPosInd)
+            # prepare the optimizer object
+            self.PrepOpt(thisOpt) 
+            OptList.append(thisOpt)
+        # initialize the multi-optimizer object
+        Opt = sim.srel.OptimizeMultiTrajClass(OptList, FilePrefix = self.Prefix) 
+        # stagewise optimization
+        # bonds
+        if 'Bond' in OptStages:
+            Opt.Iter = 0
+            self.ReportStage('Bond')
+            for Sys in self.Sys:
+                for P in Sys.ForceField: P.FreezeParam()
+            for Sys in self.Sys:
+                for P in Sys.ForceField:
+                    if P.Name.startswith("Bond") and not self.isPermaFrost(P):
+                        P.Estimate() # initial guess based on Gaussian estimation
+                        P.UnfreezeParam()
+            self.Run(Opt, 'Bond')
+        # angles
+        if 'Angle' in OptStages:
+            Opt.Iter = 0
+            self.ReportStage('Angle')
+            for Sys in self.Sys:
+                for P in Sys.ForceField: P.FreezeParam()
+            for Sys in self.Sys:
+                for P in Sys.ForceField:
+                    if P.Name.startswith("Angle") and not self.isPermaFrost(P):
+                        P.UnfreezeParam()
+            self.Run(Opt, 'Angle')
+        # torsions
+        if 'Torsion' in OptStages:
+            Opt.Iter = 0
+            self.ReportStage('Torsion')
+            for Sys in self.Sys:
+                for P in Sys.ForceField: P.FreezeParam()
+            for Sys in self.Sys:
+                for P in Sys.ForceField:
+                    if P.Name.startswith("Torsion") and not self.isPermaFrost(P):
+                        P.UnfreezeParam()
+            self.Run(Opt, 'Torsion')
+        # nonbond
+        if 'NonBond' in OptStages:
+            Opt.Iter = 0
+            self.ReportStage('NonBond')
+            for Sys in self.Sys:
+                for P in Sys.ForceField: P.FreezeParam()
+            for Sys in self.Sys:
+                for P in Sys.ForceField:
+                    if P.Name.startswith("NonBond") and not self.isPermaFrost(P):
+                        P.UnfreezeParam()
+            self.Run(Opt, 'NonBond')
+        # simultaneous optimization
+        if 'all' in OptStages:
+            Opt.Iter = 0
+            self.ReportStage('all')
+            for Sys in self.Sys:
+                for P in Sys.ForceField: P.FreezeParam()
+            for Sys in self.Sys:
+                for P in Sys.ForceField:
+                    if not P.Name.startswith("Bond") and not self.isPermaFrost(P):
+                        P.UnfreezeParam()
+            self.Run(Opt, 'all')
     
-    
+
     def runMultiGoSrel(self, Constrain = True, OptNonNative = False):
         '''optimize Go potentials with a fixed backbone from an ensemble of peptides'''
         # turn off spline constraints for all backbone potentials
@@ -307,7 +393,7 @@ class Srel(object):
             print '\nOptimizer %d' % i
             # initialize the optimizer object
             thisOpt = sim.srel.OptimizeTrajClass(self.Sys[i], self.Map[i], Traj = self.Trj[i], SaveLoadArgData = True, 
-                                             FilePrefix = self.Prefix + '_%d' % i, Verbose = True, RefPosInd = self.RefPosInd)
+                                                 FilePrefix = self.Prefix + '_%d' % i, Verbose = True, RefPosInd = self.RefPosInd)
             # prepare the optimizer object
             self.PrepOpt(thisOpt)
             OptList.append(thisOpt)
@@ -324,7 +410,7 @@ class Srel(object):
                 for P in Sys.ForceField:
                     if P.Name.startswith('NonBondNative') and not self.isPermaFrost(P):
                         P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
+            self.Run(Opt, 'NonBondNative')
         # non-native interactions
         if 'NonBondNonNative' in OptStages:
             Opt.Iter = 0
@@ -335,7 +421,7 @@ class Srel(object):
                 for P in Sys.ForceField:
                     if P.Name.startswith('NonBondNonNative') and not self.isPermaFrost(P):
                         P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
+            self.Run(Opt, 'NonBondNonNative')
         # all Go interactions simultaneously
         if 'Go_all' in OptStages:
             Opt.Iter = 0
@@ -346,7 +432,6 @@ class Srel(object):
                 for P in Sys.ForceField:
                     if (not self.isPermaFrost(P)) and (P.Name.startswith('NonBondNative') or P.Name.startswith('NonBondNonNative')):
                         P.UnfreezeParam()
-            Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq)
-        
+            self.Run(Opt, 'Go_all')       
 
 
