@@ -69,6 +69,9 @@ class ProteinNCOS(object):
         self.RelativeStartAtomInds = []
         self.__SetStartAtomInds()
         self.__SetRelativeStartAtomInds()
+        # atomnames
+        self.AtomNames = []
+        self.__SetAtomNames()
         # generate bonds
         self.BondPairs = None
         self.__SetBonds()
@@ -131,6 +134,15 @@ class ProteinNCOS(object):
                 self.ResChainInds.append(ii)
             self.NChains = len(self.Chains)
     
+    def __SetAtomNames(self):
+        '''sets atom names. Assumes that sidechains have been already named / numbered'''
+        AtomS = self.cfg.AtomS
+        for i, r in enumerate(self.Seq):
+            self.AtomNames.extend(['N', 'C', 'O'])
+            if not AtomS[r] is None:
+                if self.SSRefType == 'name': self.AtomNames.append(self.AtomSbyRes[r].Name)
+                if self.SSRefType == 'number': self.AtomNames.append(self.AtomSbyNum[i].Name)
+        
     def __SetBonds(self):
         ''' create a simple bond pair list for sim
         assumes that Chain information has already been created'''
@@ -162,13 +174,13 @@ class ProteinNCOS(object):
             self.BondPairs.append( (SInds[i], SInds[j]) ) 
     
     def GetBBInds(self, ResNums = None):
-	''' extract the backbone indices of the structure'''
-	BBInds = []
-	if ResNums is None: ResNums = range(self.NRes)
-	for i in ResNums:
-		k = self.StartAtomInds[i]
-		BBInds.extend( [k, k+1, k+2] )
-	return BBInds
+        ''' extract the backbone indices of the structure'''
+        BBInds = []
+        if ResNums is None: ResNums = range(self.NRes)
+        for i in ResNums:
+            k = self.StartAtomInds[i]
+            BBInds.extend( [k, k+1, k+2] )
+        return BBInds
    
     def GetSInds(self, ResNums = None):
         ''' extract the sidechain indices of the structure
