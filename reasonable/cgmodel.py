@@ -73,6 +73,7 @@ class UpdatePostLoad(object):
         self.Sys = Sys
         self.cfg = cfg
         self.UpdateNonNativeWCA()
+        self.UpdateNonNativeWCA_MJ()
         # other update methods can be added as required
         return None
 
@@ -83,6 +84,23 @@ class UpdatePostLoad(object):
                 P.Cut = P.Sigma[0] * 2**(1/6.)
         self.Sys.ForceField.Update()
         return
+   
+    def UpdateNonNativeWCA_MJ(self):
+        # check if all native sigmas are the same
+        # that means a single sigma was used for all native contacts
+        # set the non-native sigma to this value
+        if not self.cfg.MJSigmas: return
+        Test = self.cfg.MJSigmas.count(self.cfg.MJSigmas[0]) == len(self.cfg.MJSigmas)
+        if Test:
+            NativeSigma = self.cfg.MJSigmas[0]
+            print 'Updating Non-Native WCA for MJ Go model to use the common Native sigma = %2.2f A' % NativeSigma
+            for P in self.Sys.ForceField:
+                if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
+                    P.SetParam(Sigma = NativeSigma)
+                    P.Cut = P.Sigma[0] * 2**(1/6.)
+            self.Sys.ForceField.Update()
+        return
+
 
 def ErodeNativeContacts(ContactDict, DelFrac):
     ''' removes DelFrac fraction of native contacts
@@ -350,3 +368,106 @@ def makeSplineGoMultiSys(NativePdb, cfg, NSys = None, MasterPrefix = None, TempS
         print '\nSystem: %d' % i
         Sys.Load()
     return pList, SysList
+
+
+def makeMJGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp, Sigma = None):
+    print Preamble()
+    # ensure that sidechains are referenced according to residue number
+    cfg.SSRefType = 'number'
+    # create system topology
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    # parse native struct for native contacts in given pdb
+    print '\n'
+    ContactDict = ps.ParsePdb(p)
+    # create Sys object 
+    print '\n'
+    Sys = topo.MakeSys(p = p, cfg = cfg)
+    ff = []
+    # create backbone potentials
+    BB = bb.P_Backbone(p, Sys, cfg = cfg)
+    print '\n'
+    ff.extend(BB.BB_0())
+    # create backbone-sidechain potentials
+    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
+    # 1-alphabet bonded potentials
+    print '\n'
+    if cfg.Bonded_NCOSType == 0:
+        print 'Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.Bonded_NCOSType == 1:ff.extend(BB_S.BB_S_Bonded_1())
+    # 1-alphabet or constant repulsive nonbonded potentials
+    print '\n'
+    if cfg.NCOSType == 0:
+        print 'Multi-alphabet models not implemented yet'
+        exit()
+    if cfg.NCOSType == 1: ff.extend(BB_S.BB_S_1())
+    if cfg.NCOSType == 2: ff.extend(BB_S.BB_S_2())
+    # create sidechain-sidechain potentials
+    print '\n'
+    SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
+    # native contacts
+    print '\n'
+    ff.extend(SS.Go_native_MJ(Cut = cfg.NativeCut, Sigma = Sigma))
+    # non-native contacts
+    # Note: the non-native cutoff needs to be supplied carefully to be compatible
+    # as a WCA with the supplied sigma
+    print '\n'
+    if not cfg.NonNativeType == -1:
+        cfg.NonNativeType = 0
+        ff.extend(SS.Go_nonnative_0())
+    # populate forcefield
+    Sys.ForceField.extend(ff)
+    # set up other system properties
+    PrepSys(Sys, TempSet = TempSet)
+    # compile
+    if Verbose: print '\nCompiling model...'
+    Sys.Load()
+    return p, Sys
+
+
+def makeNonBondOnlySplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
+    print Preamble()
+    # ensure that sidechains are referenced according to residue number
+    cfg.SSRefType = 'number'
+    # create system topology
+    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
+    # parse native struct for native contacts in given pdb
+    print '\n'
+    ContactDict = ps.ParsePdb(p)
+    print '\n'
+    # create Sys object 
+    print '\n'
+    Sys = topo.MakeSys(p = p, cfg = cfg)
+    ff = []
+    # create only bonded backbone potentials
+    BB = bb.P_Backbone(p, Sys, cfg = cfg)
+    print '\n'
+    ff.extend(BB.BB_BondOnly())
+    # create backbone-sidechain potentials
+    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
+    # 1-alphabet bonded potentials
+    print '\n'
+    ff.extend(BB_S.BB_S_Bonded_BondOnly())
+    # create sidechain-sidechain potentials
+    print '\n'
+    SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
+    # native contacts
+    print '\n'
+    cfg.NativeType = 1
+    ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
+    # non-native contacts
+    # Note: the non-native cutoff needs to be supplied carefully to be compatible
+    # as a WCA with the supplied sigma
+    print '\n'
+    if not cfg.NonNativeType == -1:
+        cfg.NonNativeType = 0
+        ff.extend(SS.Go_nonnative_0())
+    # populate forcefield
+    Sys.ForceField.extend(ff)
+    # set up other system properties
+    PrepSys(Sys, TempSet = TempSet)
+    # compile
+    if Verbose: print '\nCompiling model...'
+    Sys.Load()
+    return p, Sys
+
