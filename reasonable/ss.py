@@ -44,6 +44,8 @@ class P_Sidechain(object):
             self.Topo2AID_Native = Topo2AID_Native
             self.Topo2AID_NonNative = Topo2AID_NonNative
 
+    
+    #################### NON-GO INTERACTIONS ####################
     def SS_0(self):
         '''21 alphabet nonbonded sidechain-sidechain spline potentials
         assumes sidechain reference by residue name'''
@@ -65,7 +67,7 @@ class P_Sidechain(object):
         # populate
         ff = Pair_SS.values()
         return ff
-
+    
     def SS_1(self):
         '''1 alphabet nonbonded sidechain-sidechain spline potentials
         assumes sidechain reference by residue name or number'''
@@ -79,7 +81,48 @@ class P_Sidechain(object):
         # populate
         ff = [Pair_SS]
         return ff
+    
+    def SS_MJ(self, Sigma = None, Cut = None, scaleFunc = None):
+        ''' 21 alphabet nonbonded potentials using a Miyazawa-Jernigan matrix'''
+        # get SS pairs list
+        ResSSList = self.p.GetResSSList()
+        # get filters
+        MJPairs, Topo2AID = ps.makeSSMatrix(self.p, self.Sys)
+        # set the scaling function for MJ interactions to default to no scaling
+        if Verbose: print 'Generating 21-alphabet sidechain-sidechain LJ potentials between native contacts using a Miyazawa-Jernigan matrix'
+        if scaleFunc is None: 
+            if Verbose: print 'Using unscaled MJ potentials'
+            scaleFunc = lambda ResNum1, ResName1, ResNum2, ResName2 : 1.0
+        NAID = self.Sys.World.NAID
+        LJA = np.zeros([NAID, NAID], float)
+        LJB = np.zeros([NAID, NAID], float)
+        # set sigma
+        if self.Sigma is None:
+            self.Sigma = self.cfg.MJSigma
+        # set epsilon
+        for k, (i,j) in enumerate(ResSSList):
+            # ignore residue pairs not included in Topo2AID
+            # this ignores glycines if they are not included as pseudo side chains
+            res_i = self.p.Seq[i]
+            res_j = self.p.Seq[j]
+            if not (i,j) in self.Topo2AID:
+                print 'Ignoring (%3d, %3d), (%3s, %3s)' % (i, j, res_i, res_j)
+                continue
+            m, n = self.Topo2AID[ (i,j) ]
+            thisEpsilon = scaleFunc(i,res_i, j,res_j) * MJMATRIX[ (res_i, res_j) ]
+            thisSigma = Sigma
+            if Verbose: print 'Using Sigma = %2.2f A, Epsilon = %2.2f kT for (%3d, %3d), (%3s, %3s) ' % (thisSigma, thisEpsilon / (kB*RoomTemp), i, j, res_i, res_j)
+            LJA[m,n] = 4 * thisEpsilon * thisSigma ** 12.
+            LJB[m,n] = 4 * thisEpsilon * thisSigma ** 6.
+        if Cut is None: Cut = self.cfg.Cut
+        P = sim.potential.LJMatrix(self.Sys, Filter = Filter_SS, Cut = Cut, LJA = LJA, LJB = LJB, Shift = True, Label = 'NonBondSS_MJ')
+        # populate
+        if Verbose: print 'Using Cutoff = %2.2f A' % Cut
+        ff = [P]
+        return ff
 
+    
+    #################### NATIVE GO INTERACTIONS ####################
     def Go_native_0(self, Sigma = None, Epsilon = None, Cut = None):
         '''1 alphabet Go like nonbonded native sidechain-sidechain LJ potentials
             with single sigma and epsilon'''
@@ -120,31 +163,81 @@ class P_Sidechain(object):
         for k, (i,j) in enumerate(self.ContactDict['c_native']):
             # ignore residue pairs not included in Topo2AID, while making filters
             # this ignores glycines if they are not included as pseudo side chains
-            if not self.Topo2AID_Native.__contains__( (i,j) ): continue
-            if Verbose: print 'Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, self.p.Seq[i], self.p.Seq[j], self.ContactDict['d_ss_native'][k])
-            m, n = self.Topo2AID_Native[(i,j)]
+            if not (i,j) in self.Topo2AID_Native: continue
+            res_i = self.p.Seq[i]
+            res_j = self.p.Seq[j]
+            m, n = self.Topo2AID_Native[ (i,j) ]
             # create filters
             NAID = self.Sys.World.NAID
             this_NativePair = np.zeros([NAID, NAID], int)
             this_NativePair[m,n] = 1
             this_NativePair[n,m] = 1
-            this_d0 = self.ContactDict['d_ss_native'][k]
+            thisd0 = self.ContactDict['d_ss_native'][k]
+            if Verbose: print 'Applying harmonic restraint to : (%3d, %3d), (%3s, %3s) d0 = %2.2f A ' % (i, j, res_i, res_j, thisd0)
             this_Filter = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = this_NativePair, Bonded = True)
             # create native bonded potential
-            this_P = sim.potential.Bond(self.Sys, FConst = FConst, Dist0 = this_d0, Filter = this_Filter, Label = 'Restraint_%d_%d' % (i,j))
+            this_P = sim.potential.Bond(self.Sys, FConst = FConst, Dist0 = thisd0, Filter = this_Filter, Label = 'Restraint_%d_%d' % (i,j))
             P.append(this_P)
         # populate
         ff = P
         return ff
+    
+    def Go_native_MJ(self, Cut = None, Sigma = None, scaleFunc = None):
+        ''' 21 alphabet nonbonded native-contact Go potentials using a Miyazawa-Jernigan matrix'''
+        if Verbose: print 'Generating sidechain-sidechain LJ Go potentials between native contacts using a Miyazawa-Jernigan matrix'
+        # set filters
+        Filter_Native = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = self.NativePairs, MinBondOrd = self.MinBondOrd)
+        # set the scaling function for MJ interactions to default to no scaling
+        if scaleFunc is None: 
+            if Verbose: print 'Using unscaled MJ potentials'
+            scaleFunc = lambda ResNum1, ResName1, ResNum2, ResName2 : 1.0
+        NAID = self.Sys.World.NAID
+        LJA = np.zeros([NAID, NAID], float)
+        LJB = np.zeros([NAID, NAID], float)
+        # see if a constant sigma can be set
+        AutoSigma = self.cfg.AutoSigma
+        if Sigma is None:
+            if AutoSigma:
+                Sigma = self.ContactDict['d_ss_native'].min() * (2**(-1/6.))
+                if Verbose: print 'Automatically assigning sigma from min. native contact distance. Sigma = %2.2f A' % Sigma
+        else:
+            if Verbose: print 'Using Sigma = %2.2f A' % Sigma
+        # set epsilon for native contacts
+        for k, (i,j) in enumerate(self.ContactDict['c_native']):
+            # ignore residue pairs not included in Topo2AID
+            # this ignores glycines if they are not included as pseudo side chains
+            if not (i,j) in self.Topo2AID_Native: continue
+            res_i = self.p.Seq[i]
+            res_j = self.p.Seq[j]
+            m, n = self.Topo2AID_Native[ (i,j) ]
+            thisEpsilon = scaleFunc(i,res_i, j,res_j) * MJMATRIX[ (res_i, res_j) ]
+            if Sigma is None:
+                # use variable sigma for each contact
+                thisSigma = self.ContactDict['d_native'][k] * (2**(-1/6.))
+            else:
+                # each constant sigma for each contact
+                thisSigma = Sigma
+            self.cfg.MJSigmas.append(thisSigma)
+            if Verbose: print 'Using Sigma = %2.2f A, Epsilon = %2.2f kT for (%3d, %3d), (%3s, %3s) ' % (thisSigma, thisEpsilon / (kB*RoomTemp), i, j, res_i, res_j)
+            LJA[m,n] = LJA[n,m] = 4 * thisEpsilon * thisSigma ** 12.
+            LJB[m,n] = LJB[n,m] = 4 * thisEpsilon * thisSigma ** 6.
+        if Cut is None: Cut = self.cfg.NativeCut
+        P = sim.potential.LJMatrix(self.Sys, Filter = Filter_Native, Cut = Cut, LJA = LJA, LJB = LJB, Shift = True, Label = 'NonBondNative_MJ')
+        # populate
+        if Verbose: print 'Using Cutoff = %2.2f A' % Cut
+        ff = [P]
+        return ff
 
+
+    #################### NON-NATIVE GO INTERACTIONS ####################
     def Go_nonnative_0(self, Sigma = None, Epsilon = None, Cut = None):
         '''1 alphabet Go like nonbonded non-native sidechain-sidechain WCA potentials
             with single sigma and epsilon'''
         Filter_NonNative = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = self.NonNativePairs, MinBondOrd = self.MinBondOrd)
         if Verbose: print 'Generating sidechain-sidechain nonbonded WCA potentials between non-native contacts.'
         if Sigma is None:
-            if Verbose: print 'Non-native sigma not provided. Reverting to Auto-Sigma initially'
-            Sigma = self.ContactDict['d_native'].min() ** (2**(-1/6.))
+            if Verbose: print 'Non-native sigma not provided. Automatically assigning sigma from min. native contact distance'
+            Sigma = self.ContactDict['d_ss_native'].min() * (2**(-1/6.))
         if Cut is None: Cut = Sigma * (2**(1/6.)) # WCA
         if Epsilon is None: Epsilon = self.cfg.NonNativeEpsilon
         P = sim.potential.LJ(self.Sys, Filter = Filter_NonNative, Cut = Cut, Sigma = Sigma, Epsilon = Epsilon, Shift = True, Label = 'NonBondNonNative')
@@ -158,13 +251,10 @@ class P_Sidechain(object):
         Filter_NonNative = sim.atomselect.PolyFilter([sim.atomselect.All, sim.atomselect.All], AIDPairs = self.NonNativePairs, MinBondOrd = self.MinBondOrd)
         if Verbose: print 'Generating sidechain-sidechain nonbonded spline potentials between non-native contacts.'
         # cutoff commensurate with a WCA whose corresponding LJ has a min at min native-contact distance
-        if Cut is None: Cut = seld.ContactDict['d_native'].min()
+        if Cut is None: Cut = self.ContactDict['d_ss_native'].min()
         P = sim.potential.PairSpline(self.Sys, Filter = Filter_NonNative, Cut = Cut, NKnot = self.NKnot, Label = 'NonBondNonNative')
         # populate
         if Verbose: print 'Using Cutoff = %2.2f A' % Cut
         ff = [P]
         return ff
-
-
-
 

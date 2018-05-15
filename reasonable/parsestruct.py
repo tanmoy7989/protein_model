@@ -4,7 +4,7 @@
     from supplied Pdb structure
 '''
 
-import numpy as np, copy
+import numpy as np, copy, itertools
 import protein
 import reasonable.topo as topo
 from const import *
@@ -88,8 +88,9 @@ def ParsePdb(p, ResContactList = None):
                    }
     return ContactDict
 
+
 def makeMatrix(p, ContactDict, Sys):
-    ''' makes a sim style matrix for native and non-native contacts
+    ''' makes a sim style AID matrix (to be used in filters) for native and non-native contacts
         must be supplied a cg protein object
         assumes sidechains are referenced by residue number'''
     NAID = Sys.World.NAID
@@ -145,10 +146,27 @@ def makeMatrix(p, ContactDict, Sys):
         Topo2AID_NonNative[ (i,j) ] = (m, n)
     return NativePairs, NonNativePairs, Topo2AID_Native, Topo2AID_NonNative
 
-            
 
-    
-
-
-
+def makeSSMatrix(p, Sys):
+    ''' makes sim-style AID matrix for using as filter for non-go sidechain-sidechain potentials'''
+    # extract list of s-s pairs that are MinCO away
+    ResSSList = p.GetResSSList()
+    # make AID matrix
+    NAID = Sys.World.NAID
+    SSPairs = np.zeros([NAID, NAID], int)
+    Topo2AID = {}
+    SInds = p.GetSInds()
+    for k, (i,j) in enumerate(ResSSList):
+        # check if a residue has a missing sidechain (usually glycines)
+        # such residues are ignored in making the matrix
+        # note that they are still present in the ressslist
+        if p.AtomSbyNum[i] is None or p.AtomSbyNum[j] is None: continue
+        # populate matrix
+        m = Sys.Mol[0][SInds[i]].AID
+        n = Sys.Mol[0][SInds[j]].AID
+        SSPairs[m, n] = 1
+        SSPairs[n, m] = 1
+        # store the res --> AID reference
+        Topo2AID[ (i,j) ] = (m, n)
+    return SSPairs, Topo2AID
 

@@ -219,6 +219,19 @@ class ProteinNCOS(object):
                 dsq = np.sum(d_ij * d_ij)
                 if dsq <= ResRadius * ResRadius: ResContactList.append( (i,j) )
         return ResContactList
+
+    def GetResSSList(self, ResNums = None):
+        ''' find all residue pairs that are MinCO residues away'''
+        if ResNums is None: ResNums = range(self.NRes)
+        ResSSList = []
+        for i in ResNums:
+            for j in ResNums:
+                # ignore same residue
+                if i == j: continue
+                # ignore adjacent residues
+                if abs(i-j) < MinCO: continue
+                ResSSList.append( (i,j) )
+        return ResSSList
     
 
 def MakeSys(p, cfg = None, NChains = 1):
@@ -277,6 +290,4 @@ def MakeSys(p, cfg = None, NChains = 1):
             print 'Added chain %d' % i
         Sys += Mol.New()
     return Sys
-
-
 
