@@ -98,7 +98,8 @@ class REMD(object):
                                                                            NStepsMin = self.NStepsMin, NStepsEquil = self.NStepsEquil,
                                                                            NStepsProd = self.NStepsProd, WriteFreq = self.StepFreq)
         # run Lammps REMD
-        InFile, DataFile, TableFile, DihedralFile = LammpsFiles
+        #InFile, DataFile, TableFile, DihedralFile = LammpsFiles
+        InFile = LammpsFiles[0]
         LogFile, ScreenFile, returncode = sim.export.lammps_REMD.RunLammpsReplica(InFile, Prefix = self.RunPrefix, Verbose = Verbose)
         return TrajFile, LogFile
 

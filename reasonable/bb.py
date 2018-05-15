@@ -112,3 +112,19 @@ class P_Backbone(object):
         if self.hasSpecialBBPROTorsions:
             if 'PRO' in self.p.Seq: ff.extend([Torsion_NCON_PRO, Torsion_ONCO_PRO])
         return ff
+     
+     
+    def BB_BondOnly(self):
+        ''' only bond between N,C,O atoms in the backbone'''
+        # create bonded potentials
+        if Verbose: print 'Generating intra-backbone bonds'
+        FilterC = sim.atomselect.Filter([AtomC, AtomC_GLY, AtomC_PRO])
+        Filter_NC = sim.atomselect.PolyFilter([AtomN, FilterC], Bonded = True)
+        Filter_CO = sim.atomselect.PolyFilter([FilterC, AtomO], Bonded = True)
+        Filter_ON = sim.atomselect.PolyFilter([AtomO, AtomN], Bonded = True)
+        Bond_NC = sim.potential.Bond(self.Sys, Filter = Filter_NC, Label = 'BondNC', Dist0 = 4.0, FConst = 1.0)
+        Bond_CO = sim.potential.Bond(self.Sys, Filter = Filter_CO, Label = 'BondCO', Dist0 = 4.0, FConst = 1.0)
+        Bond_ON = sim.potential.Bond(self.Sys, Filter = Filter_ON, Label = 'BondON', Dist0 = 4.0, FConst = 1.0)
+        # populate
+        ff = [Bond_NC, Bond_CO, Bond_ON]
+        return ff
