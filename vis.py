@@ -4,6 +4,9 @@ import matplotlib ; matplotlib.use('Agg')
 import matplotlib.image as mpimg, matplotlib.pyplot as plt
 import sim, protein, cgprotein
 
+sys.path.append('/home/cask0/home/tsanyal/protein_model')
+from reasonable import mapNCOS
+
 PYMOLEXEC = os.environ['PYMOL_PATH']
 IMAGEMAGICKEXEC = 'convert' # imagemagick tool
 doRotate = True
@@ -66,15 +69,15 @@ def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False, ha
     if doRotate: pNative = RotateProteinClass(pNative)
     # align with rotated native struct
     p, pNative = AlignProtein(p, pNative, BBInds)
-    # write to temp pdb files for rendering
+    # write to first set of tmp pdb files
     tmpNativePdb = os.path.join(os.getcwd(), '%s_tmpnative.pdb' % OutPrefix)
     tmpPdb = os.path.join(os.getcwd(), '%s_tmp.pdb' % OutPrefix)
     pNative.WritePdb(tmpNativePdb)
     p.WritePdb(tmpPdb)
-    # add conect records to tmpPdb for proper Pymol rendering
-    # then overwrite tmpPdb with conect records added
-    s = ExtractConect(NativePdb, tmpPdb)
-    file(tmpPdb, 'w').write(s)
+    # now reverse map these pdbs to generate an approximate carbonyl group
+    # so that STRIDE can assign secondary structures
+    mapNCOS.ReverseMap(CGPdb = tmpNativePdb, Prefix = tmpNativePdb.split('.pdb')[0])
+    mapNCOS.ReverseMap(CGPdb = tmpPdb, Prefix = tmpPdb.split('.pdb')[0])
     # prepare pymol script
     s = '''
 # set background and display style
@@ -91,9 +94,10 @@ load %(TMPPDB)s, predicted
 color blue, native
 color red, predicted
 # display only backbone
-select bb, name N+C+O
+select bb, name N+CA+C+O
 hide all
-show sticks, bb
+show cartoon
+#cartoon tube
 # save to file
 zoom complete=1
 png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
@@ -138,6 +142,10 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
         ax.set_xticklabels([]) ; ax.set_yticklabels([])
         NativePdb = NativePdbs[i]
         Pdb = Pdbs[i]
+        # check if native struct present
+        if NativePdb is None: NativePdb = '<unknown>.pdb'
+        if not os.path.isfile(NativePdb):
+            print 'Native structure for %s not found' % NativePdb.split('/')[-1].split('.pdb')[0]
         # check if predicted struct present
         if Pdb is None or (not Pdb is None and not os.path.isfile(Pdb)):
             print 'Predicted structure for %s not found' % NativePdb.split('/')[-1].split('.pdb')[0]
@@ -177,13 +185,13 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
     # 1) help
-    helpstr = 'USAGE: python ~/Go/vis.py NativePdb Pdb [OutPrefix] [hasPseudoGLY] [DelFinalPng]'
+    helpstr = 'USAGE: python ~/protein_model/vis.py NativePdb Pdb OutPrefix [hasPseudoGLY] [DelFinalPng]'
     if len(sys.argv) < 3: print helpstr
     
     #2) for single protein overlay
-    if len(sys.argv) == 5:
+    if len(sys.argv) >= 4:
         NativePdb = os.path.abspath(sys.argv[1])
         Pdb = os.path.abspath(sys.argv[2])
         OutPrefix = os.path.abspath(sys.argv[3])
         hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
-        Overlay(NativePdb, Pdb, OutPrefix = OutPrefix, hasPseudoGLY = hasPseudoGLY, SinglePlot = False)
+        Overlay(NativePdb, Pdb, OutPrefix = OutPrefix, hasPseudoGLY = hasPseudoGLY, SinglePlot = True)

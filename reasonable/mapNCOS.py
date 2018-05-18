@@ -11,8 +11,7 @@
 
 #!/usr/bin/env python
 import os, sys, copy, numpy as np, string
-import protein
-import topo
+import sim, protein
 
 genBonds = 2 # 0 for no bonds, 1 for only BB bonds, 2 for all
 
@@ -21,6 +20,36 @@ CCaps = ['NME', 'NHE', 'NH2']
 PDBFMT = "ATOM  %5d %4s %3s %1s%4d    %8.3f%8.3f%8.3f %5.2f%6.2f"        # (atomind + 1, atomname, resname, reschainind, resnum+1, x, y, z)
 BONDFMT = "%6s%5d%5d\n"                                                  # ('CONECT', a + r.StartAtom + 1, b + r.StartAtom + 1)
 
+# Peptide Bond Geometry 
+# source: http://www.cryst.bbk.ac.uk/PPS95/course/3_geometry/peptide2.html
+BondLenCN = 1.32 # A
+BondLenCAC = 1.53 # A
+BondLenCO = 1.24 # A
+AngleCACN = 114 # degrees
+
+
+def Project(PosCA, PosCGO, PosNextN):
+    '''reverse maps the carbonyl C and O from the CG O site'''
+    # reference vector from CA
+    Vec_CAN = PosNextN - PosCA
+    VecLen_CAN = np.linalg.norm(Vec_CAN)
+    # characterize the peptide plane with its unit normal
+    Vecx = PosCA - PosCGO
+    Vecy = PosNextN - PosCGO
+    VecNormal = np.cross(Vecx, Vecy)
+    UnitNormal = VecNormal / np.linalg.norm(VecNormal)
+    # angle of in-plane rotation about reference vector from CA
+    theta = np.arcsin( (BondLenCN/VecLen_CAN) * np.sin(AngleCACN * np.pi/180.) )
+    # 3D rotation matrix
+    RotMat3D = sim.geom.RotMat(Vec = UnitNormal, Ang = theta)
+    # projection direction from reference vector
+    NewVec = np.matmul(RotMat3D, Vec_CAN)
+    NewUnitVec = NewVec / np.linalg.norm(NewVec)
+    # project carbonyl C
+    PosC = PosCA + BondLenCAC * NewUnitVec
+    # project carbonyl O from COM condition
+    PosO = 2*PosCGO - PosC
+    return PosC, PosO
 
 def findProchiralH_GLY(PosN, PosCA, PosC, PosH):
     ''' finds the prochiral H in a GLY, which can
@@ -50,6 +79,7 @@ def AddH_GLY(p):
             p.TemplateAtoms(ResInd = [i], Elements = ['H'])
             p.TemplateBonds()
     return
+
 
 def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFrames = 0, hasPseudoGLY = True, NChains = 1):
     ''' Maps an all-atom pdb to a CG N-C-O-S version. If pseudo GLY side chains are requested,
@@ -241,12 +271,76 @@ def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, 
     return MappedPdb
 
 
+def ReverseMap(CGPdb, Prefix):
+    # parse coarse grained pdb
+    p = protein.ProteinClass(CGPdb)
+    Seq = p.Seq
+    Pos = p.Pos
+    PdbString = p.GetPdb()
+    # parse backbone and sidechain atoms
+    NInds = p.AtomInd(AtomName = 'N')
+    CInds = p.AtomInd(AtomName = 'C')
+    OInds = p.AtomInd(AtomName = 'O')
+    SInds = p.AtomInd(AtomName = 'S')
+    # generate approx carbonyl groups for all but last residue
+    s = ''
+    n = 0
+    CurrentChain = -1
+    for i, r in enumerate(Seq):
+        # determine if a new chain starts here 
+        thisChain = p.ResChain(i)
+        if not thisChain == CurrentChain:
+            CurrentChain = thisChain # update Chain number
+            if not i == 0: s +=  "TER\n" # inter-chain TER records
+        # Amide nitrogen
+        PosN = Pos[NInds[i]]
+        s += PDBFMT % (n+1, 'N ', r, string.ascii_uppercase[thisChain], i+1, PosN[0], PosN[1], PosN[2], 1.0, 0.0)   
+        s += '\n'
+        n += 1
+        # Alpha carbon
+        PosCA = Pos[CInds[i]]
+        s += PDBFMT % (n+1, 'CA ', r, string.ascii_uppercase[thisChain], i+1, PosCA[0], PosCA[1], PosCA[2], 1.0, 0.0)
+        s += '\n'
+        n += 1
+        # CG oxygen site
+        PosCGO = Pos[OInds[i]]
+        # find effective carbonyl
+        if i < len(Seq) - 1:
+            PosNextN = Pos[NInds[i+1]]
+            PosC, PosO = Project(PosCA, PosCGO, PosNextN)
+            # Carbonyl C
+            s += PDBFMT % (n+1, 'C ', r, string.ascii_uppercase[thisChain], i+1, PosC[0], PosC[1], PosC[2], 1.0, 0.0)
+            s += '\n'
+            n += 1
+            # Carbonyl O 
+            s += PDBFMT % (n+1, 'O ', r, string.ascii_uppercase[thisChain], i+1, PosO[0], PosO[1], PosO[2], 1.0, 0.0)
+            s += '\n'
+            n += 1
+        else:
+            # retain CG O site for last residue
+            s += PDBFMT % (n+1, 'O ', r, string.ascii_uppercase[thisChain], i+1, PosCGO[0], PosCGO[1], PosCGO[2], 1.0, 0.0)
+            s += '\n'
+            n += 1
+        # Sidechain
+        PosS = Pos[SInds[i]]
+        s += PDBFMT % (n+1, 'S ', r, string.ascii_uppercase[thisChain], i+1, PosS[0], PosS[1], PosS[2], 1.0, 0.0)
+        s += '\n'
+        n += 1
+    # write AA pdb
+    s += 'TER\n' # terminal record
+    OutPdb = Prefix + '.pdb'
+    with open(OutPdb, 'w') as of: of.write(s)
+
+
+
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
     HelpStr = '''
 python ~/protein_model/reasonable/mapNCOS.py map InPdb CGPrefix [hasPseudoGLY] [AATraj] [PrmTop] [AmberEne] [LastNFrames]
 OR
 python ~/protein_model/reasonable/mapNCOS.py map2poly InCGPdb Prefix AAPdb PolyName [hasPseudoGLY]
+OR
+python ~/protein_model/reasonable/mapNCOS.py backmap InCGPdb Prefix
 '''
     if len(sys.argv) == 1:
         print HelpStr
@@ -268,4 +362,9 @@ python ~/protein_model/reasonable/mapNCOS.py map2poly InCGPdb Prefix AAPdb PolyN
         PolyName = sys.argv[5]
         hasPseudoGLY = int(sys.argv[6]) if len(sys.argv) > 6 else 0
         Map2Polymer(Pdb = InCGPdb, PolyName = PolyName.upper(), AAPdb = AAPdb, MappedPrefix = MappedPrefix, hasPseudoGLY = hasPseudoGLY)
+
+    if sys.argv[1] == 'backmap':
+        InCGPdb = os.path.abspath(sys.argv[2])
+        Prefix = os.path.abspath(sys.argv[3])
+        ReverseMap(InCGPdb, Prefix)
 
