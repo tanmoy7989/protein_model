@@ -41,8 +41,8 @@ class Srel(object):
         # MD iterations
         self.NStepsMin = kwargs.get('NStepsMin', DEFAULTS['NStepsMin'])
         self.NStepsEquil = kwargs.get('NStepsEquil', DEFAULTS['NStepsEquil'])
-        self.NStepsProd = kwargs.get('NStepsEquil', DEFAULTS['NStepsProd'])
-        self.NStepsSwap = kwargs.get('NStepsProd', DEFAULTS['NStepsSwap'])
+        self.NStepsProd = kwargs.get('NStepsProd', DEFAULTS['NStepsProd'])
+        self.NStepsSwap = kwargs.get('NStepsSwap', DEFAULTS['NStepsSwap'])
         self.StepFreq = kwargs.get('StepFreq', DEFAULTS['StepFreq'])
         self.TimeStep = kwargs.get('TimeStep', DEFAULTS['TimeStep'])
         # rescale the iterations according to the timestep
@@ -177,6 +177,7 @@ class Srel(object):
             Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.InitCGMaxIter)
             Opt.UseHessian = True
             print 'Turning Hessian back on'
+        print self.NStepsEquil, self.NStepsProd
         Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = MaxIter)
 
             
