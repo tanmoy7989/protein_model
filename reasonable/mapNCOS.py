@@ -271,7 +271,7 @@ def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, 
     return MappedPdb
 
 
-def ReverseMap(CGPdb, Prefix):
+def ReverseMap(CGPdb, Prefix, hasPseudoGLY = False):
     # parse coarse grained pdb
     p = protein.ProteinClass(CGPdb)
     Seq = p.Seq
@@ -286,6 +286,7 @@ def ReverseMap(CGPdb, Prefix):
     s = ''
     n = 0
     CurrentChain = -1
+    i_gly = 0
     for i, r in enumerate(Seq):
         # determine if a new chain starts here 
         thisChain = p.ResChain(i)
@@ -322,10 +323,12 @@ def ReverseMap(CGPdb, Prefix):
             s += '\n'
             n += 1
         # Sidechain
-        PosS = Pos[SInds[i]]
-        s += PDBFMT % (n+1, 'S ', r, string.ascii_uppercase[thisChain], i+1, PosS[0], PosS[1], PosS[2], 1.0, 0.0)
-        s += '\n'
-        n += 1
+        if not r == 'GLY' or hasPseudoGLY:
+            PosS = Pos[SInds[i_gly]]
+            s += PDBFMT % (n+1, 'S ', r, string.ascii_uppercase[thisChain], i+1, PosS[0], PosS[1], PosS[2], 1.0, 0.0)
+            s += '\n'
+            n += 1
+            i_gly += 1
     # write AA pdb
     s += 'TER\n' # terminal record
     OutPdb = Prefix + '.pdb'
@@ -366,5 +369,6 @@ python ~/protein_model/reasonable/mapNCOS.py backmap InCGPdb Prefix
     if sys.argv[1] == 'backmap':
         InCGPdb = os.path.abspath(sys.argv[2])
         Prefix = os.path.abspath(sys.argv[3])
-        ReverseMap(InCGPdb, Prefix)
+        hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+        ReverseMap(InCGPdb, Prefix, hasPseudoGLY)
 
