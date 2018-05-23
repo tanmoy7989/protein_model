@@ -130,7 +130,7 @@ class P_Sidechain(object):
         if Verbose: print 'Generating sidechain-sidechain nonbonded LJ Go potentials between native contacts.'
         if Sigma is None:
             if Verbose: print ' Native sigma not provided. Reverting to Auto-Sigma initially'
-            Sigma = self.ContactDict['d_native'].min() * (2**(-1/6.))
+            Sigma = self.ContactDict['d_ss_native'].min() * (2**(-1/6.))
         if Cut is None: Cut = self.cfg.NativeCut
         if Epsilon is None: Epsilon = self.cfg.NativeEpsilon
         P = sim.potential.LJ(self.Sys, Filter = Filter_Native, Cut = Cut, Sigma = Sigma, Epsilon = Epsilon, Shift = True, Label = 'NonBondNative')
@@ -213,7 +213,7 @@ class P_Sidechain(object):
             thisEpsilon = scaleFunc(i,res_i, j,res_j) * MJMATRIX[ (res_i, res_j) ]
             if Sigma is None:
                 # use variable sigma for each contact
-                thisSigma = self.ContactDict['d_native'][k] * (2**(-1/6.))
+                thisSigma = self.ContactDict['d_ss_native'][k] * (2**(-1/6.))
             else:
                 # each constant sigma for each contact
                 thisSigma = Sigma

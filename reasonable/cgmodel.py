@@ -82,6 +82,8 @@ class UpdatePostLoad(object):
         for P in self.Sys.ForceField:
             if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
                 P.Cut = P.Sigma[0] * 2**(1/6.)
+                # reset min, max etc. based on cutoffs, for Lammps export
+                P.SetReport()
         self.Sys.ForceField.Update()
         return
    
@@ -98,6 +100,8 @@ class UpdatePostLoad(object):
                 if P.Name == 'NonBondNonNative' and self.cfg.NonNativeType == 0:
                     P.SetParam(Sigma = NativeSigma)
                     P.Cut = P.Sigma[0] * 2**(1/6.)
+                    # reset min, max etc. based on cutoffs, for Lammps export
+                    P.SetReport()        
             self.Sys.ForceField.Update()
         return
 
