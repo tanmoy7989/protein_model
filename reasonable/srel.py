@@ -177,7 +177,6 @@ class Srel(object):
             Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = self.InitCGMaxIter)
             Opt.UseHessian = True
             print 'Turning Hessian back on'
-        print self.NStepsEquil, self.NStepsProd
         Opt.RunConjugateGradient(StepsEquil = self.NStepsEquil, StepsProd = self.NStepsProd, StepsStride = self.StepFreq, MaxIter = MaxIter)
 
             

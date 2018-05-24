@@ -173,6 +173,66 @@ def makePolymerSys(Seq, cfg, Prefix = None, TempSet = RoomTemp, NChains = 1):
     return p, Sys
 
 
+def makePolymerMultiSys(Seq, cfg, NSys = None, MasterPrefix = None, TempSet = None):
+    print Preamble()
+    # parse all lists
+    if NSys is None: NSys = len(Seq)
+    else:
+        if not isinstance(Seq, list):
+            Seq = [Seq] * NSys 
+    if not isinstance(cfg, list): cfg = [cfg] * NSys
+    if not isinstance(TempSet, list):
+        if TempSet is None: TempSet = [RoomTemp] * NSys
+        else: TempSet = [TempSet] * NSys
+    # ensure that sidechains are referenced according to residue name
+    for i in range(NSys): cfg[i].SSRefType = 'name'
+    print 'Creating %d-system polymer ensemble...' % NSys 
+    # create the systems
+    pList = []
+    SysList = []
+    for i in range(NSys):
+        print '\nENSEMBLE SYSTEM: %d' % i
+        print '==================='
+        # set Prefix
+        Prefix = MasterPrefix + '_%d' % i
+        # create system topology
+        p = topo.ProteinNCOS(Seq = Seq[i], cfg = cfg[i], Prefix = Prefix)
+        pList.append(p)
+        # create Sys object 
+        Sys = topo.MakeSys(p = p, cfg = cfg[i])
+        ff = []
+        # create backbone potentials
+        BB = bb.P_Backbone(p, Sys, cfg = cfg[i])
+        ff.extend(BB.BB_0())
+        # create backbone-sidechain potentials
+        BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg[i])
+        # 1-alphabet bonded potentials
+        if cfg[i].Bonded_NCOSType == 0:
+            print 'ERROR: Multi-alphabet models not implemented yet'
+            exit()
+        if cfg[i].Bonded_NCOSType == 1: ff.extend(BB_S.BB_S_Bonded_1())
+        # 1-alphabet or constant repulsive nonbonded potentials
+        if cfg[i].NCOSType == 0:
+            print 'ERROR: Multi-alphabet models not implemented yet'
+            exit()
+        if cfg[i].NCOSType == 1: ff.extend(BB_S.BB_S_1())
+        if cfg[i].NCOSType == 2: ff.extend(BB_S.BB_S_2())
+        # create sidechain-sidechain potentials (1-alphabet)
+        SS = ss.P_Sidechain(p, Sys, cfg[i])
+        ff.extend(SS.SS_1())
+        # populate forcefield
+        Sys.ForceField.extend(ff)
+        # set up other system properties
+        PrepSys(Sys, TempSet = TempSet[i])
+        SysList.append(Sys)
+    # compile
+    if Verbose: print '\nCompiling extended ensemble model...'
+    for i, Sys in enumerate(SysList):
+        print '\nSystem: %d' % i
+        Sys.Load()
+    return pList, SysList
+
+
 def makeHarmonicGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
     print Preamble()
     # map NativePdb to polymer
@@ -412,53 +472,6 @@ def makeMJGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp, Sigma = None)
     # native contacts
     print '\n'
     ff.extend(SS.Go_native_MJ(Cut = cfg.NativeCut, Sigma = Sigma))
-    # non-native contacts
-    # Note: the non-native cutoff needs to be supplied carefully to be compatible
-    # as a WCA with the supplied sigma
-    print '\n'
-    if not cfg.NonNativeType == -1:
-        cfg.NonNativeType = 0
-        ff.extend(SS.Go_nonnative_0())
-    # populate forcefield
-    Sys.ForceField.extend(ff)
-    # set up other system properties
-    PrepSys(Sys, TempSet = TempSet)
-    # compile
-    if Verbose: print '\nCompiling model...'
-    Sys.Load()
-    return p, Sys
-
-
-def makeNonBondOnlySplineGoSys(NativePdb, cfg, Prefix = None, TempSet = RoomTemp):
-    print Preamble()
-    # ensure that sidechains are referenced according to residue number
-    cfg.SSRefType = 'number'
-    # create system topology
-    p = topo.ProteinNCOS(Pdb = NativePdb, cfg = cfg, Prefix = Prefix)
-    # parse native struct for native contacts in given pdb
-    print '\n'
-    ContactDict = ps.ParsePdb(p)
-    print '\n'
-    # create Sys object 
-    print '\n'
-    Sys = topo.MakeSys(p = p, cfg = cfg)
-    ff = []
-    # create only bonded backbone potentials
-    BB = bb.P_Backbone(p, Sys, cfg = cfg)
-    print '\n'
-    ff.extend(BB.BB_BondOnly())
-    # create backbone-sidechain potentials
-    BB_S = bb_s.P_Backbone_Sidechain(p, Sys, cfg = cfg)
-    # 1-alphabet bonded potentials
-    print '\n'
-    ff.extend(BB_S.BB_S_Bonded_BondOnly())
-    # create sidechain-sidechain potentials
-    print '\n'
-    SS = ss.P_Sidechain(p, Sys, cfg = cfg, ContactDict = ContactDict)
-    # native contacts
-    print '\n'
-    cfg.NativeType = 1
-    ff.extend(SS.Go_native_1(Cut = cfg.NativeCut))
     # non-native contacts
     # Note: the non-native cutoff needs to be supplied carefully to be compatible
     # as a WCA with the supplied sigma
