@@ -1,0 +1,180 @@
+{
+##################### BACKBONE FORCEFIELDS #####################
+################################################################
+
+#### NOTES ABOUT UNDERLYING AA FORCEFIELDS ####
+## backbones: ff96_igb5_glghs (favors both helical and hairpin)
+
+
+#======================== LEU 15 ========================
+'ff_leu15_bbs' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+    },
+
+'ff_leu14_bbs_paramGLY' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasSpecialGLYParams'       : 1, 
+        'NativeCut'                 : 10.0
+    },
+    
+'ff_leu15' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+    },
+
+'ff_leu14_paramGLY' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasSpecialGLYParams'       : 1, 
+        'NativeCut'                 : 10.0
+    },
+
+
+#======================== VAL 15 ========================
+'ff_val15_bbs' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+     },
+
+'ff_val15' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+     },
+
+
+
+
+##################### GO FORCEFIELDS ###########################
+################################################################
+
+#### NOTES ABOUT UNDERLYING AA FORCEFIELDS ####
+## backbones: ff96_igb5_glghs (favors both helical and hairpin)
+## prot1l2y: ff14SBonlysc_igb8 (mostly favors helical structures)
+## protg: ff96_igb5_glghs
+## prot1l2y_ff96: ff96_igb5_glghs
+
+
+#======================== LEU 15 + 1L2Y ========================
+'ff_leu15_bbs_noGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasPseudoGLY'              : 0,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+    },
+
+   
+'ff_leu15_bbs_pseudoGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasPseudoGLY'              : 1,
+        'hasSpecialGLYParams'       : 0,
+        'NativeCut'                 : 10.0
+    },
+    
+
+'ff_leu14_bbs_paramGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasPseudoGLY'              : 0,
+        'hasSpecialGLYParams'       : 1,
+        'NativeCut'                 : 10.0
+    },
+
+'ff_leu15_noGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasPseudoGLY'              : 0,
+        'hasSpecialGLYParams'       : 0,
+        'NativeCut'                 : 10.0
+    },
+
+   
+'ff_leu15_pseudoGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasPseudoGLY'              : 1,
+        'hasSpecialGLYParams'       : 0,
+        'NativeCut'                 : 10.0
+    },
+
+
+'ff_leu14_paramGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasPseudoGLY'              : 0,
+        'hasSpecialGLYParams'       : 1,
+        'NativeCut'                 : 10.0
+    },
+
+}
