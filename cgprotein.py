@@ -18,17 +18,20 @@ import pymbar, whamlib
 # file formats
 FMT = utils.FMT
 
+# ascii magic for formatted output
+UP_ONE_LINE = '\x1b[1A'
+ERASE_LINE = '\x1b[2K'
+
 # CG O-N "peptide" bond length
 # (all forcefields roughly predict this value)
 PeptideBondLen = 1.75 #A
 
 kB = 0.001987
-Emax = 80* 0.6 # 20 kT at T = 300 K 
+Emax = 80 * 0.6 # 20 kT at T = 300 K 
 
 OCut = {'RMSD': 3.0, 'Rg': 3.0, 'REE': 3.0}
 MaxCluster = 10
 
-StepFreq = 1
 NBlocks = 4
 NBins = 50
 
@@ -65,6 +68,7 @@ class ProteinNCOS(object):
         # protected (internal) proteinclass object
         self.Pdb = Pdb
         self.__p = protein.ProteinClass(Pdb, Model = Model)
+        
         # copy over some attributes from the original proteinclass
         self.AtomNames = self.__p.AtomNames()
         self.AtomRes = self.__p.AtomRes()
@@ -72,17 +76,22 @@ class ProteinNCOS(object):
         self.ChainResNums = self.__p.ChainResNums
         self.ChainAtomNums = self.__p.ChainAtomNums
         self.Chains = self.__p.Chains
+        
         # sequence manipulation
         self.UpdateSeq()
+        
         # set atom start indices
         self.hasPseudoGLY = hasPseudoGLY
         self.StartInds = []
         self.GetStartInds()
+        
         # bacbone indices
         self.BBInds = self.GetBBInds()
+        
         # Co-ordinates manipulation
         self.Pos = None
         self.UpdatePos()
+        
         # chains
         self.NChains = len(self.ChainResNums) - 1
         if self.NChains == 1:
@@ -92,6 +101,7 @@ class ProteinNCOS(object):
         for i, chain in enumerate(self.Chains):
             n = len(range(self.ChainAtomNums[i], self.ChainAtomNums[i+1]))
             self.AtomChain.extend( [chain] * n)
+    
         
     def UpdateSeq(self):
         # updates sequence and residue type counts
@@ -263,24 +273,48 @@ class ProteinNCOS(object):
 # functions suffixed _frame only calculates per frame data and no histograms
 class Compute(object):
     Recompute = False
-    def __init__(self, NativePdb, TrajFn = None, Temp = None, Prefix = 'compute', hasPseudoGLY = False):
+    def __init__(self, NativePdb, TrajFn = None, EneFn = None, Temp = None, Prefix = 'compute', hasPseudoGLY = False):
         # parse out-prefix
         self.Prefix = os.path.abspath(Prefix)
         self.OutPrefix = self.Prefix.split('/')[-1]
         self.OutDir = os.path.dirname(self.Prefix)
+        
+        # placeholders
+        self.Trj = None
+        self.Ene = None
+        self.NFrames = None
+        self.FrameRange = None
+        self.BoxL = 0.
+        
         # parse traj
         if not TrajFn is None:
             self.TrajFn = os.path.abspath(TrajFn)
             self.Trj = pickleTraj(self.TrajFn)
-            self.FrameRange = range(0, len(self.Trj), StepFreq)
+            self.FrameRange = range(0, len(self.Trj))
             self.NFrames = len(self.FrameRange)
             self.BoxL = self.Trj.FrameData.get('BoxL', np.zeros(3))
+        
+        # energies
+        if not EneFn is None:
+            self.EneFn = EneFn
+            self.Ene = np.loadtxt(self.EneFn)
+            if self.FrameRange is None and self.NFrames is None:
+                self.FrameRange = range(0, len(self.Ene))
+                self.NFrames = len(self.FrameRange)
+        
         # record temp
-        if not Temp is None:
-            self.Temp = Temp
+        self.Temp = Temp
+        
         # cg protein objects for native and predicted
         self.pNative = ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
         self.p = ProteinNCOS(NativePdb, hasPseudoGLY = hasPseudoGLY)
+    
+    def ProgressMonitor(self, OrderParamText):
+        if not self.Temp is None:
+            s = 'Calculating %s for %s at %3.2f K...' % (OrderParamText, self.OutPrefix, self.Temp)
+        else:
+            s = 'Calculating %s for %s...' % (OrderParamText, self.OutPrefix)
+        return s
    
     def Update(self, TrajFn = None, Temp = None):
         # updates the compute object if traj or temp is changed
@@ -289,7 +323,7 @@ class Compute(object):
         if not TrajFn is None:
             self.TrajFn = os.path.abspath(TrajFn)
             self.Trj = pickleTraj(self.TrajFn)
-            self.FrameRange = range(0, len(self.Trj), StepFreq)
+            self.FrameRange = range(0, len(self.Trj))
             self.NFrames = len(self.FrameRange)
             self.BoxL = self.Trj.FrameData.get('BoxL', np.zeros(3))
     
@@ -297,7 +331,7 @@ class Compute(object):
         # per frame Rg calculator
         rg_frame = np.zeros(self.NFrames)
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating overall Rg for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('Rg'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -309,7 +343,7 @@ class Compute(object):
         # per frame REE calculator
         ree_frame = np.zeros(self.NFrames)
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating overall REE for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('REE'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -321,13 +355,30 @@ class Compute(object):
         # per frame rmsd calculator
         rmsd_frame = np.zeros(self.NFrames)
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating overall RMSD for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('RMSD'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
             rmsd_frame[i] = self.p.QuickRMSD(self.pNative)
             pb.Update(i)
         return rmsd_frame
+    
+    def PhiPsi_frame(self):
+        # per frame dihedral angle calculator
+        phi_frame = np.zeros(self.NFrames)
+        psi_frame = np.zeros(self.NFrames)
+        NExcludedAtoms = len(self.pNative.ChainResNums)
+        Phi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
+        Psi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('Phi and Psi angles'), Steps = self.NFrames)
+        for i, frame in enumerate(self.FrameRange):
+            Pos = self.Trj[frame]
+            self.p.UpdatePos(Pos)
+            Phi[i, :], Psi[i, :] = self.p.GetPhiPsi(BoxL = self.BoxL)
+            pb.Update(i)
+        Phi = Phi.flatten()
+        Psi = Psi.flatten()
+        return Phi, Psi
     
     def ResContacts_frame(self):
         # makes sense to store the entire per frame data since
@@ -338,7 +389,7 @@ class Compute(object):
         # loop over frames to get average CG contact distances   
         ContactMap = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
         ContactDist = np.zeros([self.NFrames, self.p.NRes, self.p.NRes], np.float64)
-        pb = sim.utility.ProgressBar(Text = 'Enumerating contacts at %3.2fK...' % self.Temp, Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('contacts'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -356,7 +407,7 @@ class Compute(object):
         rmsd_frame = np.zeros(self.NFrames)
         rmsd_hist = None
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating overall RMSD for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('RMSD'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -374,7 +425,7 @@ class Compute(object):
         # get overall RMSD distribution only for selected residues
         rmsd_res_frame = np.zeros(self.NFrames)
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating selected residue RMSD for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('RMSD for select residues'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -394,7 +445,7 @@ class Compute(object):
         rmsd_restype = dict((r, None) for r in ResTypes)
         rmsd_restype_err = dict((r, 0.0) for r in ResTypes)
         # loop over frames
-        pb = sim.utility.ProgressBar('Calculating detailed RMSD for %s at %3.2f K...' % (self.OutPrefix, self.Temp), Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('detailed RMSD by residue number and type'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -516,7 +567,7 @@ class Compute(object):
         NExcludedAtoms = len(self.pNative.ChainResNums)
         Phi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
         Psi = np.zeros([self.NFrames, self.p.NRes-NExcludedAtoms], np.float64)
-        pb = sim.utility.ProgressBar('Calculating Phi, Psi at %3.2f K...' % self.Temp, Steps = self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('Phi and Psi angles'), Steps = self.NFrames)
         for i, frame in enumerate(self.FrameRange):
             Pos = self.Trj[frame]
             self.p.UpdatePos(Pos)
@@ -531,7 +582,22 @@ class Compute(object):
         else: ret = (Phi, Psi)
         with open(picklename, 'w') as of: pickle.dump(ret, of)
         return
-        
+    
+    def SpecificHeat(self):
+        Cv_block = (1. / (kB * self.Temp**2.)) * np.ones(NBlocks)
+        BlockSize = int(self.NFrames / NBlocks)
+        Ene = np.zeros(self.NFrames)
+        for i, frame in enumerate(self.FrameRange): Ene[i] = self.Ene[frame]
+        for b in range(NBlocks):
+            start = b * BlockSize
+            stop = (b+1) * BlockSize if b < NBlocks-1 else self.NFrames
+            E = Ene[start:stop]
+            DeltaE = E - np.mean(E)
+            Cv_block[b] *= np.mean( (DeltaE)**2. )
+        err = 0.0
+        if NBlocks > 1: err = np.std(Cv_block, ddof = 1)
+        Cv = np.mean(Cv_block)
+        return Cv, err
         
 
 # class that calculates order params over replicas 
@@ -539,49 +605,87 @@ class Replica(object):
     ReInitWeights = False
     ReCompute = False
     
-    def __init__(self, NativePdb, TrajPrefix, Prefix, TempSet = None, OrderParams = None, hasPseudoGLY = False):
+    def __init__(self, NativePdb, TrajPrefix, Prefix, TempSet = None, OrderParams = None, hasPseudoGLY = False, 
+                 NStepsProd = None, NStepsSwap = None, WriteFreq = None):
         # order param calc functions
-        self.MasterOrderParamDict = {'U': self.U,
-                                     'Rg': self.Rg,
-                                     'REE': self.REE,
-                                     'RMSD': self.RMSD}
+        self.MasterOrderParamDict = {'U'        : self.U,
+                                     'Rg'       : self.Rg,
+                                     'REE'      : self.REE,
+                                     'RMSD'     : self.RMSD}
         # native (reference pdb)
         self.NativePdb = NativePdb
+        
         # parse input and output locations (prefixes should contain dir names)
         self.TrajPrefix = os.path.abspath(TrajPrefix)
         self.Prefix = os.path.abspath(Prefix)
         self.TrajDir = os.path.dirname(self.TrajPrefix)
         self.OutDir = os.path.dirname(self.Prefix)
+        
         # temp schedule
         self.TempFile = os.path.join(self.TrajDir, 'temps.txt')
         self.Temps = np.loadtxt(self.TempFile)
-        T = TempSet if not TempSet is None else 300.0
-        self.TempSet = self.Temps[np.argmin(abs(self.Temps - T))]
-        # parse traj and ene fn list
+        if TempSet is None: TempSet = 300.0
+        self.UpdateTemp(TempSet)
+        
+        # MD iterations required to re-order order params
+        self.NStepsProd = NStepsProd
+        self.NStepsSwap = NStepsSwap
+        self.WriteFreq = WriteFreq
+        
+        # parse replica, traj and ene fn list
+        # replica are continuous (unordered in temp. space) trajectories
+        # whereas "traj" are discontinuous trajectories reordered by temperature
+        self.LogFile = os.path.join(self.TrajDir, self.TrajPrefix + 'lammps.log')
+        self.ReplicaFnList = [os.path.join(FMT['REPLICA'] % (self.TrajPrefix, i)) for i in range(len(self.Temps))]
         self.TrajFnList = [os.path.join(FMT['TRAJ'] % (self.TrajPrefix, t)) for t in self.Temps]
         self.EneFnList = [os.path.join(FMT['ENE'] % (self.TrajPrefix, t)) for t in self.Temps]
-        # number of frames in each replica (assuming all replica have same number of frames)
-        self.NFrames = len(np.loadtxt(self.EneFnList[0])[0::StepFreq])
+       
+        # detect reordering
+        self.DetectReorderMode()
+       
         # order param storage location
         self.OrderParams = OrderParams if not OrderParams is None else self.MasterOrderParamDict.keys()
-        if not self.OrderParams.__contains__('U'): self.OrderParams += ['U']
+        if not 'U' in self.OrderParams: self.OrderParams += ['U']
         self.DataShelf = os.path.join(FMT['DATASHELF'] % self.Prefix)
+        self.RawDataShelf = os.path.join(FMT['DATASHELF'] % (self.Prefix + '_raw'))
+        
         # link a compute object
         self.Calc = Compute(NativePdb = self.NativePdb, Prefix = self.Prefix, hasPseudoGLY = hasPseudoGLY)
+        
         # get all orderparams from all replicas
-        self.GetAllData()
+        if self.isReordered: self.GetAllData_Ordered()
+        else: self.GetAllData_Unordered()
+        
         # get all config weights
         self.GetConfigWeights()
-       
+            
+    def UpdateTemp(self, TempSet = None):
+        if TempSet is None: return
+        self.TempSet = self.Temps[np.argmin(abs(self.Temps - TempSet))]
+        return        
+                
     def genShelfKey(self, paramname, temp):
         # generate key for data shelf
         return '%s_%3.2f' % (paramname, temp)
     
-    def U(self, TrajFn, Temp = None):
-        # ene file parser (TrajFn is essentially an EneFn)
-        # notational abuse for consistency
-        Ene = np.loadtxt(TrajFn)
-        return Ene[0::StepFreq]
+    def genRawShelfKey(self, paramname, replicaind):
+        # return key for raw data shelf with data for each replica
+        return '%s_%d' % (paramname, replicaind)
+    
+    def U(self, TrajFn, Temp = None, ReplicaInd = None):
+        # when energy files are present
+        if self.isReordered:
+            # ene file parser (TrajFn is essentially an EneFn)
+            # notational abuse for consistency
+            Ene = np.loadtxt(TrajFn)
+        else:
+            # when ene files absent, extract from traj
+            TrajName = TrajFn
+            LogFile = self.LogFile + '.%d' % ReplicaInd
+            Token = '#run production'
+            Trj = pickleTraj(TrajName, LogFile = LogFile, LogFileToken = Token) 
+            Ene = Trj.ThermoDict['PEnergy']
+        return Ene
         
     def RMSD(self, TrajFn, Temp):
         # RMSD calculator
@@ -598,23 +702,135 @@ class Replica(object):
         self.Calc.Update(TrajFn = TrajFn, Temp = Temp)
         return self.Calc.REE_frame()
     
-    def GetAllData(self):
-        # calculate all order params at all temperatures
-        print 'Assembling order params for each Replica...'
+    def DetectReorderMode(self):
+        # detects if temp. ordered trajectories are present
+        x = all([os.path.isfile(i) for i in self.TrajFnList])
+        y = all([os.path.isfile(i) for i in self.EneFnList])
+        z = all([os.path.isfile(i) for i in self.ReplicaFnList])
+        Test1 = x and y
+        Test2 = z
+        if (not Test1) and (not Test2):
+            print 'ERROR: No trajectories here!'
+            exit()
+        elif Test1:
+            print 'Detected discontinous trajectories, but ordered by temperature'
+            self.isReordered = True
+            self.NFrames = len(np.loadtxt(self.EneFnList[0]))
+        else:
+            print 'Detected continuous trajectories, but not ordered by temperature'
+            self.isReordered = False
+            self.NFrames = int(self.NStepsProd / self.WriteFreq)
+        return
+        
+    def Reorder(self, OrderParam, Temp):
+        # reorders a given order parameter calculated from different replica
+        # at a particular temp (present in the supplied temp. schedule)
+        # assumes that all replicas have already been pickled
+        if self.NStepsProd is None or self.NStepsSwap is None or self.WriteFreq is None:
+            print 'ERROR: Reordering order parameters requires md iteration info'
+            return
+        TempInd = list(self.Temps).index(Temp)
+        RepIndsMaster = [np.where(x[1:] == TempInd)[0][0] for x in np.loadtxt(self.LogFile, skiprows = 3)]
+        RepInds = RepIndsMaster[ - int(self.NStepsProd / self.NStepsSwap) : ]
+        # data type check
+        if isinstance(OrderParam, list): OrderParam = np.array(OrderParam)
+        # keep only production frames for this order parameter
+        O1 = OrderParam[:, -int(self.NStepsProd / self.WriteFreq) : ]
+        O2 = []
+        # case 1
+        if self.WriteFreq <= self.NStepsSwap:
+            for ii, i in enumerate(RepInds):
+                # point to the row for this replica
+                thisO = O1[i, :]
+                # find start and stop indices
+                start = ii * self.NStepsSwap / self.WriteFreq
+                stop = (ii+1) * self.NStepsSwap / self.WriteFreq
+                # write to output
+                O2.extend(thisO[start:stop])
+        # case 2
+        else:
+            NSkip = self.WriteFreq / self.NStepsSwap
+            for ii, i in enumerate(RepInds[0::NSkip]):
+                # point to the row for this replica
+                thisO = O1[i, :]
+                # find start and stop indices
+                start = ii
+                stop = ii + 1
+                O2.extend(thisO[start:stop])
+        # return array
+        O2 = np.array(O2)
+        return O2
+    
+    
+    def GetAllData_Ordered(self):
+        # when trajectories are discontinuous i.e. ordered by temp.
         d = shelve.open(self.DataShelf)
+        print '\nAssembling order params at each temperature...'
         for o in self.OrderParams:
+            print '\nOrderParam = %s' % o
             for i, t in enumerate(self.Temps):
                 Fn = self.EneFnList[i] if o == 'U' else self.TrajFnList[i]
                 if not os.path.isfile(Fn):
-                    print 'Replica at temp %3.2f K not found' % t
+                    print 'Skipping temp %3.2f K: Traj not found' % t
                     continue
+                # skip if already computed
                 key = self.genShelfKey(o, t)
                 if d.has_key(key): continue
-                print '\n%s, %3.2f K' % (o, t)
+                print '  %s, %3.2f K\n' % (o, t)
+                # if not computed, compute and add to shelf
                 func = self.MasterOrderParamDict[o]
                 d[key] = func(TrajFn = Fn, Temp = t)
+                sys.stdout.write(ERASE_LINE)
+                sys.stdout.write(UP_ONE_LINE)
+            print '--------------------------------'
         d.close()
-        return 
+        return
+        
+    def GetAllData_Unordered(self):
+        # when trajectories are continuous i.e. unordered in temp. space
+        d = shelve.open(self.DataShelf)
+        dr = shelve.open(self.RawDataShelf)
+        print '\nAssembling order params from each replica...'
+        for o in self.OrderParams:
+            print '\nOrderParam = %s' % o
+            # calculate the order param from each replica and accumulate
+            thisO_raw = []
+            for i in range(len(self.Temps)):
+                Fn = self.ReplicaFnList[i]
+                if not os.path.isfile(Fn):
+                    print 'Skipping replica %d: Traj not found' % i
+                    continue
+                key = self.genRawShelfKey(o, i)
+                # compute only if not present in shelf
+                if not dr.has_key(key):
+                    print '  %s, Replica %d\n' % (o, i)
+                    func = self.MasterOrderParamDict[o]
+                    if o == 'U': ret = func(TrajFn = Fn, Temp = None, ReplicaInd = i)
+                    else: ret = func(TrajFn = Fn, Temp = None)
+                    dr[key] = ret
+                    sys.stdout.write(ERASE_LINE)
+                    sys.stdout.write(UP_ONE_LINE)
+                # if present access from shelf
+                else:
+                    ret = dr[key]
+                # add to list (append not extend)
+                thisO_raw.append(list(ret))
+            # convert list of lists to 2D array
+            thisO_raw = np.array(thisO_raw)
+            # reorder by temperature
+            print 'Reordering by temperature...'
+            for i, t in enumerate(self.Temps):
+                key = self.genShelfKey(o, t)
+                if d.has_key(key): continue
+                print '  %s, %3.2f K\n' % (o, t)
+                thisO = self.Reorder(thisO_raw, t)
+                sys.stdout.write(ERASE_LINE)
+                sys.stdout.write(UP_ONE_LINE)
+                d[key] = thisO
+            print '--------------------------------'
+        dr.close()
+        d.close()
+        return
     
     
     def GetConfigWeights(self):
@@ -633,6 +849,7 @@ class Replica(object):
         U_kn = np.zeros([K, N], np.float64)
         for k, t in enumerate(self.Temps):
             key = self.genShelfKey('U', t)
+            print key, d[key].shape
             U_kn[k,:] = d[key]
         # loop over blocks
         w_kn = {}
@@ -666,7 +883,6 @@ class Replica(object):
         
     
     def FoldCurve(self, O = 'RMSD'):
-        import matplotlib.pyplot as plt
         # calculate folding curve w.r.t. chosen order param (usually rmsd)
         picklename = FMT['FOLDCURVE'] % (self.Prefix, O)
         if os.path.isfile(picklename): return
