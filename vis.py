@@ -76,8 +76,8 @@ def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False, ha
     p.WritePdb(tmpPdb)
     # now reverse map these pdbs to generate an approximate carbonyl group
     # so that STRIDE can assign secondary structures
-    mapNCOS.ReverseMap(CGPdb = tmpNativePdb, Prefix = tmpNativePdb.split('.pdb')[0])
-    mapNCOS.ReverseMap(CGPdb = tmpPdb, Prefix = tmpPdb.split('.pdb')[0])
+    mapNCOS.ReverseMap(CGPdb = tmpNativePdb, Prefix = tmpNativePdb.split('.pdb')[0], hasPseudoGLY = hasPseudoGLY)
+    mapNCOS.ReverseMap(CGPdb = tmpPdb, Prefix = tmpPdb.split('.pdb')[0], hasPseudoGLY = hasPseudoGLY)
     # prepare pymol script
     s = '''
 # set background and display style

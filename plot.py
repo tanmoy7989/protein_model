@@ -3,6 +3,17 @@
 import os, shutil, sys, numpy as np, cPickle as pickle, shelve
 import utils, vis
 
+def TrimPmf(pmf, Emax = 5*0.6, n = 10):
+    for i in range(pmf.shape[0]):
+        for j in range(pmf.shape[1]):
+            if np.isfinite(pmf[i,j]) and pmf[i,j] > Emax: pmf[i,j] = Emax
+    pmf_ = pmf[np.isfinite(pmf)]
+    pmf_ = pmf_.flatten()
+    offset = np.mean(np.sort(pmf_)[0:n])
+    pmf -= offset
+    return pmf
+
+
 #### PREDICTED STRUCTURES PANEL ####
 def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False, DelOverlayPng = False, OverlayPngDir = None):
     print 'PLOTTING PANELS'
@@ -19,7 +30,11 @@ def PlotPanel(DataDir, NativeDir = None, Prefix = None, hasPseudoGLY = False, De
     for i, p in enumerate(pset):
         print 'Aligning  ', p
         # extract native pdb
-        nativepdb = utils.parseNative(p, MasterDir = NativeDir)
+        try:
+            nativepdb = utils.parseNative(p, MasterDir = NativeDir)
+        except IOError:
+            print 'utils IO Error: native structure missing'
+            nativepdb = None
         NativePdbs.append(nativepdb)
         # see if cluster pdb is present
         hasclustpdb, clustpdb = utils.hasCGData(Prefix = 'prot_'+p, OutDir = os.path.join(OutDir, p, DataDir), Key = 'clustpdb')
@@ -79,11 +94,11 @@ def PlotRamaProb(DataDir, Prefix = None):
         PhiCenters *= (180. / np.pi)
         PsiCenters *= (180. / np.pi)
         # trim pmf
-        #RamaPmf = RamaPmf.clip(min = -5, max = 5) # restrict within -5 kT and 5 kT
+        RamaPmf = TrimPmf(RamaPmf, Emax = 20., n = 10)
         # plot
-        im = ax.imshow(np.transpose(RamaPmf), origin = 'lower', aspect = 'auto', interpolation = 'gaussian', cmap = cm.Reds,
+        im = ax.imshow(np.transpose(RamaPmf), origin = 'lower', aspect = 'auto', interpolation = 'gaussian', cmap = cm.jet,
                        extent = [PhiCenters.min(), PhiCenters.max(), PsiCenters.min(), PsiCenters.max()])
-        ax.scatter(PhiNative, PsiNative, s = 100, c = 'blue', marker = 'o', edgecolor = 'k', lw = 4)
+        ax.scatter(PhiNative, PsiNative, s = 200, c = 'white', marker = 'o', edgecolor = 'k', lw = 4)
         ax.axhline(0., color = 'black', lw = 2)
         ax.axvline(0., color = 'black', lw = 2)
     if Prefix is None: Prefix = 'ramaprob'

@@ -15,7 +15,7 @@ OutDir = os.path.abspath(sys.argv[3])
 NReplica = int(sys.argv[4]) if len(sys.argv) > 4 else 8
 
 # forcefield metadata
-FF_File, FFMetadata = utils.parseGoFF(FFType, MasterDir = os.path.expanduser('~/protein_model/cgff/ffs/debugmatrix'))
+FF_File, FFMetadata = utils.parseGoFF(FFType, MasterDir = os.path.expanduser('~/protein_model/cgff_new/ffs'))
 
 # has pseudoGLY?
 hasPseudoGLY = FFMetadata['hasPseudoGLY']
@@ -40,7 +40,7 @@ NativePdb = utils.parseNative(PdbName, MasterDir = MasterDir_Native)
 try:
     AATopClustPdb = utils.parseNative(PdbName, MasterDir = MasterDir_AATopClust)
 except IOError:
-    print 'Utils Error: Requested Top clust pdb does not exist'
+    print 'utils IO Error: Requested all-atom top clust pdb does not exist'
     AATopClustPdb = None
 Prefix = 'prot_' + PdbName
 
@@ -66,7 +66,7 @@ TimeStep = FFMetadata['TimeStep'] # femto-seconds
 NStepsMin = 10000                   # 10 ps
 NStepsEquil = 50000000              # 50 ns
 NStepsProd  = 20000000              # 20 ns
-NStepsSwap = 1000                   # 1 ps
+NStepsSwap = 2000                   # 1 ps
 StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
     
 # REMD script template

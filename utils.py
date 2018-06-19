@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 FMT = {
        'GENERAL'        : '%s.%3.2f',
        'TRAJ'           : '%s.%3.2f.lammpstrj.gz',
+       'REPLICA'        : '%s.lammpstrj.%d.gz',
        'PDB'            : '%s.%3.2f.pdb',
        'ENE'            : '%s.%3.2f.ene.dat.gz',
        'RMSD'           : '%s.%3.2f.RMSD.pickle',
@@ -41,16 +42,16 @@ GoFFTYPES = ['ff_leu15_protg_spline',
              'ff_val_leu_bbs_protg_spline']
  
 # important master paths and metadata files
-FFDIR = os.path.expanduser('~/protein_model/cgff')
+FFDIR = os.path.expanduser('~/protein_model/cgff_new')
 #FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/ff_metadata.txt')
 # use this version of FFMETADATAFILE while debugmatrix is running
-FFMETADATAFILE = os.path.expanduser('~/protein_model/cgff/ffs/debugmatrix/ff_metadata.txt')
+FFMETADATAFILE = os.path.join(FFDIR, 'ffs', 'ff_metadata.txt')
 NATIVEDIR = os.path.expanduser('~/protein_model/native_struct/mapped')
 NATIVEMETADATAFILE = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
 
 def parseBBFF(BBType, MasterDir = None):
-    if not BBTYPES.__contains__(BBType):
-        raise IOError('Requested backbone forcefield not present in repository')
+    #if not BBTYPES.__contains__(BBType):
+    #    raise IOError('Requested backbone forcefield not present in repository')
     if MasterDir is None: MasterDir = os.path.join(FFDIR, 'ffs')
     FF_File = os.path.join(MasterDir, BBType + '_BB.dat')
     mdata = eval(file(FFMETADATAFILE).read())

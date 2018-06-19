@@ -40,24 +40,30 @@ Keys = ['rmsd',
         'contactdistcorr'
        ] 
 
+# if any of the following does not exist / has not been created, exit
+Required = [NativePdb, TrajFn]
+if not all([os.path.isfile(i) for i in Required]):
+    print 'analysis IO Error: Insufficient starting information. Traj or native struct missing'
+    exit()
+
 # fancy intro
-print 'ANALYSING GO MODEL RESULTS FOR %s at %3.2f K' % (Prefix, TempSet)
+print '\nANALYSING GO MODEL RESULTS FOR %s at %3.2f K' % (Prefix, TempSet)
 print '----------------------------------------------------------------'
 
 # set up Compute object
-print 'Creating Compute object'
+print '\nCreating Compute object'
 calc = cg.Compute(NativePdb = NativePdb, TrajFn = TrajFn, Temp = TempSet, Prefix = OutPrefix, hasPseudoGLY = hasPseudoGLY)
 
 # calculate overall rmsd
 def RMSD(CompType = 'traj'):
     oshelf = shelve.open(OutShelf)
     if CompType == 'traj':
-        print 'Computing overall RMSD distribution'
+        print '\nComputing overall RMSD distribution'
         rmsdhist = calc.QuickRMSD()
         oshelf['rmsd'] = rmsdhist
     
     if CompType == 'topclust':
-        print 'Computing RMSD from top cluster'
+        print '\nComputing RMSD from top cluster'
         pNative = cg.ProteinNCOS(NativePdb)
         pClust = cg.ProteinNCOS(oshelf['clustpdb'])
         rmsd = pClust.QuickRMSD(pNative)
@@ -67,7 +73,7 @@ def RMSD(CompType = 'traj'):
 
 # cluster the room temp traj
 def Cluster():
-    print 'Clustering trajectory'
+    print '\nClustering trajectory'
     calc.Cluster()
     oshelf = shelve.open(OutShelf)
     oshelf['clustpdb'] = FMT['CLUSTPDB'] % (OutPrefix, TempSet)
@@ -76,7 +82,7 @@ def Cluster():
 
 # calculate phi psi errors
 def PhiPsiErr(ErrType = 'traj'):
-    print 'Calculating Ramachandran plot errors with native struct'
+    print '\nCalculating Ramachandran plot errors with native struct'
     # get native phi, psi
     pNative = cg.ProteinNCOS(NativePdb)
     Phi_Native, Psi_Native = pNative.GetPhiPsi()
@@ -109,7 +115,7 @@ def PhiPsiErr(ErrType = 'traj'):
     return   
 
 def ContactMap(CompType = 'traj'):
-    print 'Comparing Native vs. Predicted contact maps based on: ', CompType
+    print '\nComparing Native vs. Predicted contact maps based on: ', CompType
     NativeContactMap, ClustContactMap = calc.CompareContactMap(CompType = CompType)
     oshelf = shelve.open(OutShelf)
     oshelf['rescontacts'] = FMT['RESCONTACTS'] % (OutPrefix, TempSet)
@@ -117,14 +123,14 @@ def ContactMap(CompType = 'traj'):
     oshelf.close()
 
 def FracNativeContacts():
-    print 'Calculating fraction of native contacts'
+    print '\nCalculating fraction of native contacts'
     frachist = calc.GetFracNativeContacts()
     oshelf = shelve.open(OutShelf)
     oshelf['fracnativecontacts'] = frachist
     oshelf.close()
 
 def ContactOrder():
-    print 'Comparing native vs. Predicted  contact orders'
+    print '\nComparing native vs. Predicted  contact orders'
     nativeCO, clustCOhist = calc.CompareCO()
     oshelf = shelve.open(OutShelf)
     oshelf['co'] = (nativeCO, clustCOhist)
