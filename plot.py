@@ -151,6 +151,40 @@ def PlotPhiPsiErr(DataDir, Prefix = None):
     return
 
 
+#### FOLDING CURVES PANEL ####
+def PlotFoldCurve(DataDir, Prefix = None):
+    print 'PLOTTING FOLDING CURVES'
+    print '------------------------'
+    import matplotlib; matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    pset_type = sys.argv[1]
+    OutDir = os.path.abspath(sys.argv[2])
+    layout = utils.getPanelLayout(pset_type)
+    pset = layout['pset']
+    fig = plt.figure(figsize = (5*layout['NCols'], 4*layout['NRows']), facecolor = 'w', edgecolor = 'w')
+    for i, p in enumerate(pset):
+        ax = fig.add_subplot(layout['NRows'], layout['NCols'], i+1)
+        ax.set_title(p)
+        # extract data
+        print 'Extracting folding curves for ', p
+        hasFoldCurve, FoldCurvePickle = utils.hasCGData(Prefix = 'prot_'+p, OutDir = os.path.join(OutDir, p, DataDir), Key = 'foldcurve')
+        if (not hasRamaFoldCurve) or (not os.path.isfile(FoldCurvePickle)):
+            print 'Folding curve for %s not found' % p
+            continue
+        with open(FoldCurvePickle, 'r') as of:
+            Temps, Frac, Err = pickle.load(of)
+        TFold = Temps[np.argmin(abs(Frac-0.5))]
+        # plot
+        ax.errorbar(Temps, Frac, yerr = Err, color = 'red', marker = 'o', lw = 3, markersize = 4)
+        ax.axvline(TFold, color = 'black', ls = '--', lw = 2)
+    if Prefix is None: Prefix = 'foldcurve'
+    figname = os.path.join(OutDir, Prefix+'.png')
+    fig.tight_layout()
+    plt.savefig(figname, bbox_inches='tight')
+    return
+
+
 #### CONTACT MAPS  ####
 def PlotContactMap(DataDir, Prefix = None):
     print 'PLOTTING CONTACT MAPS'
@@ -309,6 +343,9 @@ if __name__ == '__main__':
     PlotPhiPsiErr(DataDir = 'NativeAnalysis', Prefix = 'ramaerr_native')
     PlotPhiPsiErr(DataDir = 'AATopClustAnalysis', Prefix = 'ramaerr_topclust')
         
+    PlotFoldCurve(DataDir = 'NativeAnalysis', Prefix = 'foldcurve_native')
+    PlotFoldCurve(DataDir = 'AATopClustAnalysis', Prefix = 'foldcurve_topclust')
+
     PlotContactMap(DataDir = 'NativeAnalysis', Prefix = 'contactmap_native')
     PlotContactMap(DataDir = 'AATopClustAnalysis', Prefix = 'contactmap_topclust')
         
