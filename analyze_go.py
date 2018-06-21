@@ -14,7 +14,13 @@ NativePdb = os.path.abspath(sys.argv[1])
 Prefix = sys.argv[2]
 TrajDir = os.path.abspath(sys.argv[3])
 OutDir = os.path.abspath(sys.argv[4])
+
 hasPseudoGLY = int(sys.argv[5]) if len(sys.argv) > 5 else False
+
+calcFoldTemp = bool(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else False
+NStepsProd = int(sys.argv[7]) if len(sys.argv) > 7 else None
+NStepsSwap = int(sys.argv[8]) if len(sys.argv) > 8 else None
+WriteFreq = int(sys.argv[9]) if len(sys.argv) > 9 else None
 
 # get tempset
 TempFile = os.path.join(TrajDir, 'temps.txt')
@@ -36,8 +42,9 @@ Keys = ['rmsd',
         'rescontacts', 
         'contactmap_traj', 'contactmap_topclust',
         'fracnativecontacts',
-        'co'
-        'contactdistcorr'
+        'co',
+        'contactdistcorr',
+        'foldcurve'
        ] 
 
 # if any of the following does not exist / has not been created, exit
@@ -135,7 +142,20 @@ def ContactOrder():
     oshelf = shelve.open(OutShelf)
     oshelf['co'] = (nativeCO, clustCOhist)
     oshelf.close()
-    
+
+def FoldCurve():
+    print '\nComputing folding curves'
+    print 'Creating replica object...'
+    rep = cg.Replica(NativePdb = NativePdb, TrajPrefix = TrajPrefix, TempSet = 300.0,
+                     OrderParams = ['U', 'RMSD'], Prefix = OutPrefix,
+                     NStepsProd = NStepsProd, NStepsSwap = NStepsSwap,
+                     WriteFreq = WriteFreq)
+    rep.FoldCurve()
+    oshelf = shelve.open(OutShelf)
+    oshelf['foldcurve'] = FMT['FOLDCURVE'] % (OutPrefix, 'RMSD')
+    oshelf.close()
+
+
 
 #### MAIN ####
 RMSD('traj')
@@ -146,4 +166,4 @@ RMSD('topclust')
 ContactMap('topclust')
 FracNativeContacts()
 ContactOrder()
-
+if calcFoldTemp: FoldCurve()

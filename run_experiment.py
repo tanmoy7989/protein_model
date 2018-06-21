@@ -22,28 +22,13 @@ if ExpName == 'spline_experiment':
     pset_type = sys.argv[2]
     FFType = sys.argv[3]
     OutDir = os.path.abspath(sys.argv[4])
+    NReplica = int(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else 8
     MetaDataFile = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
     data = eval(file(MetaDataFile).read())
     PdbNames = data[pset_type]
     Script = os.path.expanduser('~/protein_model/%s.py' % ExpName)
     for i, p in enumerate(PdbNames):
-        cmd = 'python %s %s %s %s' % (Script, p, FFType, OutDir)
-        os.system(cmd)
-
-# native-MJ experiment
-if ExpName == 'mjgo_experiment':
-    pset_type = sys.argv[2]
-    FFType = sys.argv[3]
-    OutDir = os.path.abspath(sys.argv[4])
-    hasPseudoGLY = int(sys.argv[5]) if len(sys.argv) > 5 else 0
-    AutoSigma = int(sys.argv[6]) if len(sys.argv) > 6 else 0
-    Sigma = float(sys.argv[7]) if len(sys.argv) > 7 else None
-    MetaDataFile = os.path.expanduser('~/protein_model/native_struct/native_metadata.txt')
-    data = eval(file(MetaDataFile).read())
-    PdbNames = data[pset_type]
-    Script = os.path.expanduser('~/protein_model/%s.py' % ExpName)
-    for i, p in enumerate(PdbNames):
-        cmd = 'python %s %s %s %s %d %d %s' % (Script, p, FFType, OutDir, hasPseudoGLY, AutoSigma, Sigma)
+        cmd = 'python %s %s %s %s %d' % (Script, p, FFType, OutDir, NReplica)
         os.system(cmd)
 
 # erodenative(-spline) experiment

@@ -8,6 +8,7 @@ import reasonable as cg
 
 CURRDIR = os.getcwd()
 RoomTemp = 300.
+calcFoldTemp = 1
 
 PdbName = sys.argv[1]
 FFType = sys.argv[2]
@@ -64,8 +65,8 @@ TimeStep = FFMetadata['TimeStep'] # femto-seconds
     
 # MD iterations
 NStepsMin = 10000                   # 10 ps
-NStepsEquil = 50000000              # 50 ns
-NStepsProd  = 20000000              # 20 ns
+NStepsEquil = 80000000              # 50 ns
+NStepsProd  = 40000000              # 20 ns
 NStepsSwap = 2000                   # 1 ps
 StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
     
@@ -161,10 +162,13 @@ jobstr = '''
 export PYTHONPATH=$PYTHONPATH:~/protein_model
 date
 python remd.py
+
 mkdir -p ./NativeAnalysis
-mkdir -p ./AATopClustAnalysis
-python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis %(HASPSEUDOGLY)d
-python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d
+python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis %(HASPSEUDOGLY)d %(CALCFOLDTEMP)d %(NSTEPSPROD)d %(NSTEPSSWAP)d %(STEPFREQ)d
+
+#mkdir -p ./AATopClustAnalysis
+#python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d %(CALCFOLDTEMP)d %(NSTEPSPROD)d %(NSTEPSSWAP)d %(STEPFREQ)d
+
 date
 '''
 # dict for filling md script template
@@ -198,7 +202,20 @@ d1 = {
     }
 
 # dict for filling job script template
-d2 = {'JOBNAME': Prefix, 'NATIVEPDB': NativePdb, 'AATOPCLUSTPDB': AATopClustPdb, 'PREFIX': Prefix, 'HASPSEUDOGLY': hasPseudoGLY}
+d2 = {
+      'JOBNAME'                 : Prefix,
+       
+      'NATIVEPDB'               : NativePdb, 
+      'AATOPCLUSTPDB'           : AATopClustPdb, 
+      'PREFIX'                  : Prefix, 
+      
+      'HASPSEUDOGLY'            : hasPseudoGLY,
+      
+      'CALCFOLDTEMP'            : calcFoldTemp,
+      'NSTEPSPROD'              : NStepsProd,
+      'NSTEPSSWAP'              : NStepsSwap,
+      'STEPFREQ'                : StepFreq
+    }
 
 # run REMD job
 mdscript = os.path.join(OutDir, 'remd.py')
