@@ -146,8 +146,7 @@ class P_Backbone_Sidechain(object):
             FilterS = sim.atomselect.Filter([self.AtomS[i] for i in range(self.p.NRes) if not self.AtomS[i] is None])
         elif self.SSRefType == 'name':
             FilterS = sim.atomselect.Filter([self.AtomS[r] for r in self.p.ResTypes if not self.AtomS[r] is None])
-        FilterC = sim.atomselect.Filter([AtomC, AtomC_GLY, AtomC_PRO])
-        FilterBB = sim.atomselect.Filter([AtomN, FilterC, AtomO])
+        FilterBB = sim.atomselect.Filter([AtomN, AtomC, AtomC_GLY, AtomC_PRO, AtomO])
         Filter_BBS = sim.atomselect.PolyFilter([FilterBB, FilterS], MinBondOrd = self.MinBondOrd)
         Pair_BBS = sim.potential.PairSpline(self.Sys, Filter = Filter_BBS, Label = 'NonBondBBS', NKnot = self.NKnot, Cut = self.SPCut)
         # populate
