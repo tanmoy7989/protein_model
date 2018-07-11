@@ -10,7 +10,7 @@
 '''
 
 #!/usr/bin/env python
-import os, sys, copy, numpy as np, string
+import os, sys, copy, numpy as np, string, argparse
 import sim, protein
 
 genBonds = 2 # 0 for no bonds, 1 for only BB bonds, 2 for all
@@ -81,13 +81,13 @@ def AddH_GLY(p):
     return
 
 
-def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFrames = 0, hasPseudoGLY = True, NChains = 1):
+def Map(InPdb, CGPrefix, Model = None, AATraj = None, PrmTop = None, AmberEne = None, LastNFrames = 0, hasPseudoGLY = True):
     ''' Maps an all-atom pdb to a CG N-C-O-S version. If pseudo GLY side chains are requested,
     automatically hydrogenates GLY residues that don't have alpha hydrogens'''
     if hasPseudoGLY:
         print 'Using pseudo Glycines'
     # read in protein structure
-    p = protein.ProteinClass(Pdb = InPdb)
+    p = protein.ProteinClass(Pdb = InPdb, Model = Model)
     p.Update()
     # hydrogenate glycines that don't have hydrogens
     if hasPseudoGLY: AddH_GLY(p)
@@ -226,12 +226,12 @@ def Map(InPdb, CGPrefix, AATraj = None, PrmTop = None, AmberEne = None, LastNFra
     return
 
 
-def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, DelTmpPdb = True):
+def Map2Polymer(Pdb, AAPdb, PolyName, Model = None, MappedPrefix = None, hasPseudoGLY = True, DelTmpPdb = True):
     ''' maps the given (CG) Pdb to a polymer of equivalent length 
     and returns a CG Pdb that is mapped to a poly-peptide (PolyName) of equivalent length
     Energy minimization not yet implemented'''
     # read in unmapped AA Pdb
-    p_AA = protein.ProteinClass(AAPdb)
+    p_AA = protein.ProteinClass(AAPdb, Model = Model)
     p_AA = p_AA.Decap()
     # map this to a polymer of equivalent length
     print 'Mapping structure to a %s-%d sequence' % (PolyName, len(p_AA.Seq))
@@ -271,9 +271,9 @@ def Map2Polymer(Pdb, PolyName, AAPdb, MappedPrefix = None, hasPseudoGLY = True, 
     return MappedPdb
 
 
-def ReverseMap(CGPdb, Prefix, hasPseudoGLY = False):
+def ReverseMap(CGPdb, Prefix, Model = None, hasPseudoGLY = False):
     # parse coarse grained pdb
-    p = protein.ProteinClass(CGPdb)
+    p = protein.ProteinClass(CGPdb, Model = Model)
     Seq = p.Seq
     Pos = p.Pos
     PdbString = p.GetPdb()
@@ -338,37 +338,50 @@ def ReverseMap(CGPdb, Prefix, hasPseudoGLY = False):
 
 #### COMMAND LINE USAGE ####
 if __name__ == '__main__':
-    HelpStr = '''
-python ~/protein_model/reasonable/mapNCOS.py map InPdb CGPrefix [hasPseudoGLY] [AATraj] [PrmTop] [AmberEne] [LastNFrames]
-OR
-python ~/protein_model/reasonable/mapNCOS.py map2poly InCGPdb Prefix AAPdb PolyName [hasPseudoGLY]
-OR
-python ~/protein_model/reasonable/mapNCOS.py backmap InCGPdb Prefix
-'''
-    if len(sys.argv) == 1:
-        print HelpStr
-        exit()
-    if sys.argv[1] == 'map':
-        InPdb = os.path.abspath(sys.argv[2])
-        CGPrefix = os.path.abspath(sys.argv[3])
-        hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
-        AATraj = os.path.abspath(sys.argv[5]) if len(sys.argv) > 5 else None
-        PrmTop = os.path.abspath(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else None
-        AmberEne = os.path.abspath(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[7] else None
-        LastNFrames = int(sys.argv[8]) if len(sys.argv) > 8 else 0
-        Map(InPdb = InPdb, CGPrefix = CGPrefix, AATraj = AATraj, PrmTop = PrmTop, AmberEne = AmberEne, LastNFrames = LastNFrames, hasPseudoGLY = hasPseudoGLY)
-
-    if sys.argv[1] == 'map2poly':
-        InCGPdb = os.path.abspath(sys.argv[2])
-        MappedPrefix = os.path.abspath(sys.argv[3])
-        AAPdb = os.path.abspath(sys.argv[4])
-        PolyName = sys.argv[5]
-        hasPseudoGLY = int(sys.argv[6]) if len(sys.argv) > 6 else 0
-        Map2Polymer(Pdb = InCGPdb, PolyName = PolyName.upper(), AAPdb = AAPdb, MappedPrefix = MappedPrefix, hasPseudoGLY = hasPseudoGLY)
-
-    if sys.argv[1] == 'backmap':
-        InCGPdb = os.path.abspath(sys.argv[2])
-        Prefix = os.path.abspath(sys.argv[3])
-        hasPseudoGLY = int(sys.argv[4]) if len(sys.argv) > 4 else 0
-        ReverseMap(InCGPdb, Prefix, hasPseudoGLY)
-
+    parser = argparse.ArgumentParser(description = 'AA-->CG mapper for Pdb files and LAMMPS / AMBER trajectories')
+    # common required args
+    parser.add_argument('InPdb', help = 'AA or CG pdb')
+    parser.add_argument('OutPrefix', help = 'prefix of outputs: for trajectories, saves in current dir')
+    # common optional args
+    parser.add_argument('-op', '--operation', help = 'map: AA-CG map of Pdb file, backmap: CG-AA map of Pdb file, map2poly: AA-CG map of Pdb to polymer backbone')
+    parser.add_argument('-gly', '--hasgly', action = 'store_true', help = 'has Pseudo GLY?')
+    parser.add_argument('-m', '--model', type = int, help = 'Model number, starts from 1')
+    # optional args for trajectories
+    parser.add_argument('--aatraj', '--aatraj', help = 'AA trajectory, can be Lammps or Amber')
+    parser.add_argument('-prmtop', '--prmtop', help = 'PrmTop file to parse Amber trajectory')
+    parser.add_argument('-ene', '--ene', help = 'Amber Ene file')
+    parser.add_argument('-n', '--nframes', type = int, default = 0, help = 'Work with last n frames')
+    # optional args for mapping to a polymer
+    parser.add_argument('-poly', '--poly', help = 'Amino acid of polymer backbone to map to')
+    parser.add_argument('-aapdb', '--aapdb', help = 'AA Pdb for the CG pdb that is to be mapped to a polymer')
+    
+    args = parser.parse_args()
+    InPdb = os.path.abspath(args.InPdb)
+    OutPrefix = os.path.abspath(args.OutPrefix)
+    Op = args.operation
+    hasPseudoGLY = args.hasgly
+    Model = args.model
+    AATraj = args.aatraj
+    PrmTop = args.prmtop
+    AmberEne = args.ene
+    LastNFrames = args.nframes
+    PolyName = args.poly
+    AAPdb = args.aapdb
+    
+    # default
+    if Op is None: exit()
+    
+    # map
+    if Op == 'map':
+        Map(InPdb = InPdb, CGPrefix = OutPrefix, Model = Model, 
+            AATraj = AATraj, PrmTop = PrmTop, AmberEne = AmberEne, 
+            LastNFrames = LastNFrames, hasPseudoGLY = hasPseudoGLY)
+    
+    if Op == 'map2poly':
+        Map2Polymer(Pdb = InPdb, AAPdb = AAPdb, PolyName = PolyName.upper(), 
+                    Model = Model, MappedPrefix = OutPrefix, 
+                    hasPseudoGLY = hasPseudoGLY) 
+    
+    if Op == 'backmap':
+        ReverseMap(CGPdb = InPdb, Prefix = OutPrefix, Model = Model, 
+                    hasPseudoGLY = hasPseudoGLY)
