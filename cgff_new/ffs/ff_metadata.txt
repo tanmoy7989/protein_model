@@ -82,6 +82,43 @@
      },
 
 
+#======================== LEU+VAL ========================
+'ff_leu_val_merge' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+     },
+
+'ff_leu_val_heterpoly_281K' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+     },
+
+'ff_leu_val_heterpoly_360K' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+     },
+
 
 
 ##################### GO FORCEFIELDS ###########################
@@ -90,7 +127,6 @@
 #### NOTES ABOUT UNDERLYING AA FORCEFIELDS ####
 ## backbones: ff96_igb5_glghs (favors both helical and hairpin)
 ## prot1l2y: ff14SBonlysc_igb8 (mostly favors helical structures)
-## protg: ff96_igb5_glghs
 ## prot1l2y_ff96: ff96_igb5_glghs
 
 
@@ -177,4 +213,36 @@
         'NativeCut'                 : 10.0
     },
 
+
+#======================== VAL 15 + 1L2Y ========================
+# notes: from leu-15 debug matrix experiments, only bbs/no_bbs + pseudoGLY
+# forcefields were selected as good ones.
+
+'ff_val15_bbs_pseudoGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 2,
+        'hasPseudoGLY'              : 1,
+        'hasSpecialGLYParams'       : 0, 
+        'NativeCut'                 : 10.0
+    },
+
+   
+'ff_val15_pseudoGLY_prot1l2y_spline' : 
+    {
+        'MinBondOrd'                : 5,
+        'NKnot'                     : 40,
+        'Cut'                       : 10.0,
+        'TimeStep'                  : 1.0,
+        'Bonded_NCOSType'           : 1,
+        'NCOSType'                  : 1,
+        'hasPseudoGLY'              : 1,
+        'hasSpecialGLYParams'       : 0,
+        'NativeCut'                 : 10.0
+    }
+ 
 }
