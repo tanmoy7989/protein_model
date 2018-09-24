@@ -159,10 +159,10 @@ def FoldCurve():
 
 #### MAIN ####
 RMSD('traj')
-PhiPsiErr('traj')
-ContactMap('traj')
 Cluster()
+PhiPsiErr('traj')
 RMSD('topclust')
+ContactMap('traj')
 ContactMap('topclust')
 FracNativeContacts()
 ContactOrder()

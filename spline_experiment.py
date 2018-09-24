@@ -8,7 +8,7 @@ import reasonable as cg
 
 CURRDIR = os.getcwd()
 RoomTemp = 300.
-calcFoldTemp = 1
+calcFoldTemp = False
 
 PdbName = sys.argv[1]
 FFType = sys.argv[2]
@@ -65,9 +65,9 @@ TimeStep = FFMetadata['TimeStep'] # femto-seconds
     
 # MD iterations
 NStepsMin = 10000                   # 10 ps
-NStepsEquil = 80000000              # 50 ns
-NStepsProd  = 40000000              # 20 ns
-NStepsSwap = 2000                   # 1 ps
+NStepsEquil = 80000000              # 50 ns, 80 ns
+NStepsProd  = 40000000              # 20 ns, 40 ns
+NStepsSwap = 2000                   # 2 ps
 StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
     
 # REMD script template
@@ -166,8 +166,8 @@ python remd.py
 mkdir -p ./NativeAnalysis
 python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis %(HASPSEUDOGLY)d %(CALCFOLDTEMP)d %(NSTEPSPROD)d %(NSTEPSSWAP)d %(STEPFREQ)d
 
-#mkdir -p ./AATopClustAnalysis
-#python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d %(CALCFOLDTEMP)d %(NSTEPSPROD)d %(NSTEPSSWAP)d %(STEPFREQ)d
+mkdir -p ./AATopClustAnalysis
+python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d %(CALCFOLDTEMP)d %(NSTEPSPROD)d %(NSTEPSSWAP)d %(STEPFREQ)d
 
 date
 '''

@@ -169,7 +169,7 @@ def PlotFoldCurve(DataDir, Prefix = None):
         # extract data
         print 'Extracting folding curves for ', p
         hasFoldCurve, FoldCurvePickle = utils.hasCGData(Prefix = 'prot_'+p, OutDir = os.path.join(OutDir, p, DataDir), Key = 'foldcurve')
-        if (not hasRamaFoldCurve) or (not os.path.isfile(FoldCurvePickle)):
+        if (not hasFoldCurve) or (not os.path.isfile(FoldCurvePickle)):
             print 'Folding curve for %s not found' % p
             continue
         with open(FoldCurvePickle, 'r') as of:

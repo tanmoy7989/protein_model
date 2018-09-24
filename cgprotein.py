@@ -32,7 +32,7 @@ Emax = 80 * 0.6 # 20 kT at T = 300 K
 OCut = {'RMSD': 3.0, 'Rg': 3.0, 'REE': 3.0}
 MaxCluster = 10
 
-NBlocks = 4
+NBlocks = 2
 NBins = 50
 
 # Misc utility functions
@@ -98,9 +98,9 @@ class ProteinNCOS(object):
             self.AtomChain = [' '] * len(self.AtomNames)
         else:
             self.AtomChain = []
-        for i, chain in enumerate(self.Chains):
-            n = len(range(self.ChainAtomNums[i], self.ChainAtomNums[i+1]))
-            self.AtomChain.extend( [chain] * n)
+            for i, chain in enumerate(self.Chains):
+                n = len(range(self.ChainAtomNums[i], self.ChainAtomNums[i+1]))
+                self.AtomChain.extend( [chain] * n)
     
         
     def UpdateSeq(self):
@@ -240,7 +240,7 @@ class ProteinNCOS(object):
         # get the entire backbone pos coordinates
         BBPos = self.GetBBPosSlice()
         # minimage for periodic box
-        if all(BoxL) :BBPos = lib.reimagechain(pos = self.Pos, boxl = BoxL)
+        if all(BoxL): BBPos = lib.reimagechain(pos = BBPos, boxl = BoxL)
         Phi = np.zeros(len(ResNums))
         Psi = np.zeros(len(ResNums))
         for i, r in enumerate(ResNums):
@@ -837,7 +837,7 @@ class Replica(object):
         # calculate config weights
         # must be called only after the data shelf has been populated completely
         d = shelve.open(self.DataShelf)
-        if not self.ReInitWeights and d.has_key('w_kn'):
+        if not self.ReInitWeights and d.has_key('w_kn') and d.has_key('logw_kn'):
             d.close()
             return
         
@@ -849,10 +849,10 @@ class Replica(object):
         U_kn = np.zeros([K, N], np.float64)
         for k, t in enumerate(self.Temps):
             key = self.genShelfKey('U', t)
-            print key, d[key].shape
             U_kn[k,:] = d[key]
         # loop over blocks
         w_kn = {}
+        logw_kn = {}
         BlockSize = int(self.NFrames / NBlocks)
         print 'Calculating config weights...'
         for b in range(NBlocks):
@@ -875,14 +875,16 @@ class Replica(object):
             # get log weights at all temps for this block        
             for k, t in enumerate(self.Temps):
                 log_w_kn = whamlib.log_weight(ekn = this_U_kn, betak = beta_k, targetbeta = beta_k[k], fk = this_f_k)
-                w_kn[ (k, b) ] = np.exp(log_w_kn)
+                logw_kn[ (k,b) ] = log_w_kn
+                w_kn[ (k,b) ] = np.exp(log_w_kn)
         # dump to shelf
         d['w_kn'] = w_kn
+        d['logw_kn'] = logw_kn
         d.close()
         return 
         
     
-    def FoldCurve(self, O = 'RMSD'):
+    def FoldCurve(self, O = 'RMSD', MAX = None, MIN = None):
         # calculate folding curve w.r.t. chosen order param (usually rmsd)
         picklename = FMT['FOLDCURVE'] % (self.Prefix, O)
         if os.path.isfile(picklename): return
@@ -895,8 +897,12 @@ class Replica(object):
             key = self.genShelfKey(O, t)
             x_kn[k, :] = d[key]
         # get overall max and min and bin w.r.t them
-        x_max = x_kn.max() * (1. - measure.HistPadding)
-        x_min = x_kn.min() * (1. + measure.HistPadding)
+        x_min = MIN
+        x_max = MAX
+        if x_min is None:
+            x_min = x_kn.min() * (1. + measure.HistPadding)
+        if x_max is None:
+            x_max = x_kn.max() * (1. - measure.HistPadding)
         dx = (x_max - x_min) / float(NBins)
         x_centers =  x_min + dx * (0.5 + np.arange(NBins))
         cut_inds = (x_centers <= OCut[O])
@@ -904,19 +910,26 @@ class Replica(object):
         BlockSize = int(self.NFrames / NBlocks)
         foldfrac_block = np.zeros([len(self.Temps), NBlocks])
         for k, t in enumerate(self.Temps):
-            print 'Target Temp = %3.2f K' % t
+            print '\nTarget Temp = %3.2f K' % t
             for b in range(NBlocks):
                 if NBlocks > 1: print ' Block: ', b
                 start = b * BlockSize
                 stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
                 # get config weights
                 weights = d['w_kn'][ (k,b) ].flatten()
-                print 'Calculating histograms...'
+                # calculate 1D histograms (don't normalize)
                 x = x_kn[:, start:stop].flatten()
-                measure.NBins = NBins
-                measure.NBlocks = 1
-                measure.Normalize = False
-                this_bin_centers, this_hist, this_err = measure.makeHist(x, weights = weights, bintuple = (x_min, x_max, dx))
+                this_hist = np.zeros(NBins)
+                for i, this_x in enumerate(x):
+                    idx = int( (this_x - x_min) / dx)
+                    if idx >= NBins: idx = NBins - 1
+                    if idx < 0: idx = 0
+                    this_hist[idx] += weights[i]
+                #measure.NBins = NBins
+                #measure.NBlocks = 1
+                #measure.Normalize = False
+                #this_bin_centers, this_hist, this_err = measure.makeHist(x, weights = weights, bintuple = (x_min, x_max, dx))
+                
                 # computing folding fraction at (temp, block) as cumulative histogram within a cutoff
                 foldfrac_block[k, b] = this_hist[cut_inds].sum() / float(this_hist.sum())
 
@@ -975,7 +988,7 @@ class Replica(object):
         return
 
     
-    def PMF2D(self, O1, O2):
+    def PMF2D(self, O1, O2, MIN1 = None, MIN2 = None, MAX1 = None, MAX2 = None):
         # calculate 2D pmf w.r.t order params O1 and O2
         picklename = FMT['PMF2D'] % (self.Prefix, self.TempSet, O1, O2)
         if os.path.isfile(picklename): return
@@ -991,12 +1004,23 @@ class Replica(object):
             x_kn[k, :] = d[xkey]
             y_kn[k, :] = d[ykey]
         # get overall max and min and bin w.r.t them
-        x_min = x_kn.min() * (1.0 - measure.HistPadding)
-        x_max = x_kn.max() * (1.0 + measure.HistPadding)
+        x_min = MIN1
+        x_max = MAX1
+        y_min = MIN2
+        y_max = MAX2
+        if x_min is None:
+            x_min = x_kn.min() * (1.0 - measure.HistPadding)
+        if x_max is None:
+            x_max = x_kn.max() * (1.0 + measure.HistPadding)
         dx = (x_max - x_min) / float(NBins)
-        y_min = y_kn.min() * (1.0 - measure.HistPadding)
-        y_max = y_kn.max() * (1.0 + measure.HistPadding)
+        if y_min is None:
+            y_min = y_kn.min() * (1.0 - measure.HistPadding)
+        if y_max is None:
+            y_max = y_kn.max() * (1.0 + measure.HistPadding)
         dy = (y_max - y_min) / float(NBins)
+        # bin centers
+        x_centers =  x_min + dx * (0.5 + np.arange(NBins))
+        y_centers =  y_min + dy * (0.5 + np.arange(NBins))
     
         # compute PMF block by block
         BlockSize = int(self.NFrames / NBlocks)
@@ -1009,14 +1033,29 @@ class Replica(object):
             x = x_kn[:, start:stop].flatten()
             y = y_kn[:, start:stop].flatten()
             weights = d['w_kn'][ (TempInd, b) ].flatten()
-            measure.NBins = NBins
-            measure.NBlocks = 1
-            bintuple = ( (x_min, y_min), (x_max, y_max), (dx, dy) )
-            bin_centers, this_hist, this_err = measure.makeHist2D(x, y, weights = weights, bintuple = bintuple)
-            pmf_block[b, :, :] =  - (kB * self.TempSet) * np.log(this_hist)
+            # calculate histogram
+            this_hist = np.zeros([NBins, NBins])
+            for i in range(len(x)):
+                idx = int( (x[i] - x_min) / dx)
+                idy = int( (y[i] - y_min) / dy)
+                if idx >= NBins: idx = NBins - 1
+                if idx < 0: idx = 0
+                if idy >= NBins: idy = NBins - 1
+                if idy < 0: idy = 0
+                this_hist[idx, idy] += weights[i]    
+            # normalize histogram
+            this_rownorm = dy * np.sum(this_hist, axis = 1)
+            this_norm = dx * np.sum(this_rownorm)
+            this_hist /= this_norm
+            pmf_block[b, :, :] = -np.log(this_hist)
+            #measure.NBins = NBins
+            #measure.NBlocks = 1
+            #bintuple = ( (x_min, y_min), (x_max, y_max), (dx, dy) )
+            #bin_centers, this_hist, this_err = measure.makeHist2D(x, y, weights = weights, bintuple = bintuple)
+            #pmf_block[b, :, :] =  - (kB * self.TempSet) * np.log(this_hist)
+             
              
         # calculate errors
-        x_centers, y_centers = bin_centers
         pmf = np.mean(pmf_block, axis = 0)
         if NBlocks > 1: err = np.std(pmf_block, axis = 0, ddof = 1)
         else: err = np.zeros([NBins, NBins])
