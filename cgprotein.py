@@ -26,37 +26,20 @@ ERASE_LINE = '\x1b[2K'
 # (all forcefields roughly predict this value)
 PeptideBondLen = 1.75 #A
 
+# Boltzmann constant
 kB = 0.001987
-Emax = 80 * 0.6 # 20 kT at T = 300 K 
 
-OCut = {'RMSD': 3.0, 'Rg': 3.0, 'REE': 3.0}
+# Cutoff for metrics
+OCut = {'RMSD': 2.0, 'Rg': 2.0, 'REE': 2.0}
 MaxCluster = 10
 
-NBlocks = 2
+# Histogramming
+NBlocks = 4
 NBins = 50
 
-# Misc utility functions
-def TrimPMF(pmf, LastNBins = 10, Dim = 2):
-    # trims a pmf to remove noise
-    global Emax
-    LastNBins = 10
-    # hard cut for all finite but very high and potentially noisy) points on the free energy surface
-    if Dim == 1:
-        for i in range(len(pmf)):
-            if np.isfinite(pmf[i]) and pmf[i] > Emax:
-                pmf[i] = Emax
-    if Dim == 2:
-        for i in range(pmf.shape[0]):
-            for j in range(pmf.shape[1]):
-                if np.isfinite(pmf[i,j]) and pmf[i,j] > Emax:
-                    pmf[i,j] = Emax     
-    # shift the pmf so that the average of the smallest 
-    # LastNBins is zero
-    #pmf_ = pmf[np.isfinite(pmf)]
-    #if Dim == 2: pmf_ = pmf_.flatten()
-    #offset = np.mean(np.sort(pmf_)[0:LastNBins])
-    #pmf -= offset
-    return pmf
+# LogFile reading style for getting energies
+LogFileStyle = 'mystyle' # 'simstyle' for using sim.traj.Lammps
+
 
 
 # CG protein object that defines basic topology and computation routines for order params
@@ -679,12 +662,28 @@ class Replica(object):
             # notational abuse for consistency
             Ene = np.loadtxt(TrajFn)
         else:
-            # when ene files absent, extract from traj
-            TrajName = TrajFn
-            LogFile = self.LogFile + '.%d' % ReplicaInd
-            Token = '#run production'
-            Trj = pickleTraj(TrajName, LogFile = LogFile, LogFileToken = Token) 
-            Ene = Trj.ThermoDict['PEnergy']
+            # when ene files absent, extract from traj if simstyle log files
+            if LogFileStyle == 'simstyle':
+                TrajName = TrajFn
+                LogFile = self.LogFile + '.%d' % ReplicaInd
+                Token = '#run production'
+                Trj = pickleTraj(TrajName, LogFile = LogFile, LogFileToken = Token) 
+                Ene = Trj.ThermoDict['PEnergy']
+            
+            # when ene files are absent, parse directly from log-files if mystyle log files
+            if LogFileStyle == 'mystyle':
+                LogFile = self.LogFile + '.%d' % ReplicaInd
+                with open(LogFile, 'r') as ologf: lines = ologf.readlines()
+                Token = 0
+                for line in lines:
+                    Token += 1
+                    if 'Minimization stats' in line: break
+                lines = lines[Token:]
+                start = 1 + [lines.index(line) for line in lines if 'PotEng' in line][0]
+                stop = [lines.index(line) for line in lines if 'Loop time' in line][0]
+                lines = lines[start : stop]
+                Ene = [float(line.split()[2]) for line in lines]
+                Ene = np.array(Ene)
         return Ene
         
     def RMSD(self, TrajFn, Temp):
@@ -978,7 +977,6 @@ class Replica(object):
         
         # trim the pmf
         pmf = np.mean(pmf_block, axis = 0)
-        #pmf = TrimPMF(pmf, Dim = 1)
         if NBlocks > 1: err = np.std(pmf_block, axis = 0, ddof = 1)
         else: err = np.zeros(NBins)
         # write to pickle
