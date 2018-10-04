@@ -80,12 +80,41 @@ class REMD(object):
         initpos = pobj.Pos
         return initpos
 
+    def makeREMD(self):
+        ''' make REMD input files using LAMMPS'''
+        # random initial structure
+        self.Sys.Arrays.Pos = self.GenRandInitPos()
+        #sim.system.init.velocities.Canonical(self.Sys, Temp = self.Sys.TempSet)
+        # record temp schedule
+        if not os.path.isfile(self.TempFile):
+            np.savetxt(self.TempFile, self.Temps)
+        else:
+            self.Temps = np.loadtxt(self.TempFile)
+        # feed in all the settings to the Lammps export
+        sim.export.lammps_REMD.NStepsSwap = self.NStepsSwap
+        sim.export.lammps_REMD.TEMPS = self.Temps
+        LammpsFiles, TrajFile = sim.export.lammps_REMD.MakeLammpsReplicaMD(self.Sys, Prefix = self.RunPrefix, TrajFile = '.lammpstrj',
+                                                                           NStepsMin = self.NStepsMin, NStepsEquil = self.NStepsEquil,
+                                                                           NStepsProd = self.NStepsProd, WriteFreq = self.StepFreq)
+        # modify the dump file for forward compatibility
+        InFile = LammpsFiles[0]
+        with open(InFile, 'r') as of: lines = of.readlines()
+        del of
+        start = [lines.index(line) for line in lines if line.startswith('thermo_style')][0]
+        stop = [lines.index(line) for line in lines if line.startswith('thermo_modify')][0] + 2
+        pre = lines[: start]
+        post = lines[stop:]
+        newline = ['thermo_style custom step temp pe\n\n']
+        s = ''.join(pre + newline + post)
+        with open(InFile, 'w') as of: of.write(s)
+        return
+    
+    
     def runREMD(self):
         ''' run REMD using LAMMPS'''
         # random initial structure
-        sim.export.lammps.LammpsExec = LAMMPSEXEC
         self.Sys.Arrays.Pos = self.GenRandInitPos()
-        sim.system.init.velocities.Canonical(self.Sys, Temp = self.Sys.TempSet)
+        #sim.system.init.velocities.Canonical(self.Sys, Temp = self.Sys.TempSet)
         # record temp schedule
         if not os.path.isfile(self.TempFile):
             np.savetxt(self.TempFile, self.Temps)
@@ -106,7 +135,6 @@ class REMD(object):
     def runMD(self, Parallel = False, NCores = 1):
         ''' run MD using LAMMPS'''
         # random initial structure
-        sim.export.lammps.LammpsExec = LAMMPSEXEC
         self.Sys.Arrays.Pos = self.GenRandInitPos()
         sim.system.init.velocities.Canonical(self.Sys, Temp = self.Sys.TempSet)
         # feed in all the settings to the Lammps export
