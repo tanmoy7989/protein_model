@@ -7,10 +7,10 @@ import argparse
 
 # min and max ranges for Rg and RMSD
 # based on prior observations
-MINRg = 5. #5.0
-MAXRg = 15.0 #15.0
-MINRMSD = 0. #0.0
-MAXRMSD = 15. #15.0 # 15.0 for val
+MINRg = 5. 
+MAXRg = 15.0 
+MINRMSD = 0. 
+MAXRMSD = 15.
 
 def NearestTemp(T, TList):
     ind = np.argmin(abs(TList - T))
@@ -88,4 +88,4 @@ FoldCurve()
 FieldMap()
 if not Temp is None:
     RamaChandran()
-    #Cluster()
+    Cluster()
