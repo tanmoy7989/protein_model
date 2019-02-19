@@ -7,7 +7,7 @@ import sim
 # constants and flags, etc
 FMT = utils.FMT
 RoomTemp = 300.0
-Recompute = True
+Recompute = False
 
 # user input
 NativePdb = os.path.abspath(sys.argv[1])
@@ -16,11 +16,9 @@ TrajDir = os.path.abspath(sys.argv[3])
 OutDir = os.path.abspath(sys.argv[4])
 
 hasPseudoGLY = int(sys.argv[5]) if len(sys.argv) > 5 else False
-
-calcFoldTemp = bool(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else False
-NStepsProd = int(sys.argv[7]) if len(sys.argv) > 7 else None
-NStepsSwap = int(sys.argv[8]) if len(sys.argv) > 8 else None
-WriteFreq = int(sys.argv[9]) if len(sys.argv) > 9 else None
+NStepsProd = int(sys.argv[6]) if len(sys.argv) > 6 else None
+NStepsSwap = int(sys.argv[7]) if len(sys.argv) > 7 else None
+WriteFreq = int(sys.argv[8]) if len(sys.argv) > 8 else None
 
 # get tempset
 TempFile = os.path.join(TrajDir, 'temps.txt')
@@ -36,15 +34,15 @@ TrajFn = FMT['TRAJ'] % (TrajPrefix, TempSet)
 # output shelf
 OutShelf = os.path.join(OutPrefix + '.shelf')
 Keys = ['rmsd', 
+        'clustpdb',
+        'foldcurve'      
         'ramaprob',
         'ramaerr', 
-        'clustpdb', 
         'rescontacts', 
         'contactmap_traj', 'contactmap_topclust',
         'fracnativecontacts',
         'co',
         'contactdistcorr',
-        'foldcurve'
        ] 
 
 # if any of the following does not exist / has not been created, exit
@@ -116,7 +114,8 @@ def PhiPsiErr(ErrType = 'traj'):
             Err[i] = np.mean( np.sqrt(this_Phidiff**2 + this_Psidiff**2) ) # need to do a np.mean over frames
     
     oshelf = shelve.open(OutShelf)
-    oshelf['ramaprob'] = RamaPickle
+    with open(RamaPickle, 'w') as of: data = pickle.load(RamaPickle)
+    oshelf['ramaprob'] = data
     oshelf['ramaerr'] = (Phi_Native, Psi_Native, Err)
     oshelf.close()
     return   
@@ -146,13 +145,15 @@ def ContactOrder():
 def FoldCurve():
     print '\nComputing folding curves'
     print 'Creating replica object...'
-    rep = cg.Replica(NativePdb = NativePdb, TrajPrefix = TrajPrefix, TempSet = 300.0,
+    rep = cg.Replica(NativePdb = NativePdb, TrajPrefix = TrajPrefix, TempSet = TempSet,
                      OrderParams = ['U', 'RMSD'], Prefix = OutPrefix,
                      NStepsProd = NStepsProd, NStepsSwap = NStepsSwap,
                      WriteFreq = WriteFreq)
     rep.FoldCurve()
     oshelf = shelve.open(OutShelf)
-    oshelf['foldcurve'] = FMT['FOLDCURVE'] % (OutPrefix, 'RMSD')
+    foldcurvepickle = FMT['FOLDCURVE'] % (OutPrefix, 'RMSD')
+    with open(foldcurvepickle, 'r') as of: data = pickle.load(of)
+    oshelf['foldcurve'] = foldcurvepickle
     oshelf.close()
 
 
@@ -160,10 +161,12 @@ def FoldCurve():
 #### MAIN ####
 RMSD('traj')
 Cluster()
-PhiPsiErr('traj')
 RMSD('topclust')
-ContactMap('traj')
-ContactMap('topclust')
-FracNativeContacts()
-ContactOrder()
-if calcFoldTemp: FoldCurve()
+FoldCurve()
+
+# these are expensive to calculate and not required right now
+#PhiPsiErr('traj')
+#ContactMap('traj')
+#ContactMap('topclust')
+#FracNativeContacts()
+#ContactOrder()

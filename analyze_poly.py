@@ -11,6 +11,7 @@ MINRg = 5.
 MAXRg = 15.0 
 MINRMSD = 0. 
 MAXRMSD = 15.
+lib.NBlocks = 4
 
 def NearestTemp(T, TList):
     ind = np.argmin(abs(TList - T))
@@ -52,7 +53,7 @@ calc = lib.Compute(NativePdb = NativePdb, TrajFn = TrajFn, Temp = TempSet, Prefi
 # replica object
 print '\nCreating Replica object'
 rep = lib.Replica(NativePdb = NativePdb, TrajPrefix = TrajPrefix, Prefix = OutPrefix,
-                  TempSet = TempSet, OrderParams = ['U', 'Rg', 'RMSD'],
+                  TempSet = TempSet, OrderParams = ['U', 'Rg', 'RMSD', 'HScore', 'BScore'],
                   NStepsProd = NStepsProd, NStepsSwap = NStepsSwap, WriteFreq = WriteFreq)
 
 def Cluster():
@@ -82,10 +83,14 @@ def FieldMap():
     rep.PMF2D(O1 = 'Rg', O2 = 'RMSD',
               MIN1 = MINRg, MAX1 = MAXRg, MIN2 = MINRMSD, MAX2 = MAXRMSD)
     
+def StrideSS():
+    # stride scores
+    print '\nCalculating STRIDE secondary struct scores'
+    rep.StrideSS()
 
 #### MAIN ####
+Cluster()
 FoldCurve()
 FieldMap()
-if not Temp is None:
-    RamaChandran()
-    Cluster()
+RamaChandran()
+StrideSS()

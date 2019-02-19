@@ -10,10 +10,11 @@
 
 #!/usr/bin/env python
 
-import os, sys, cPickle as pickle, shelve, numpy as np, copy
+import os, sys, cPickle as pickle, shelve, numpy as np, copy, subprocess
 import sim, protein, measure, pickleTraj, utils
 import cgproteinlib as lib
 import pymbar, whamlib
+from reasonable import mapNCOS
 
 # file formats
 FMT = utils.FMT
@@ -30,7 +31,7 @@ PeptideBondLen = 1.75 #A
 kB = 0.001987
 
 # Cutoff for metrics
-OCut = {'RMSD': 2.0, 'Rg': 2.0, 'REE': 2.0}
+OCut = {'RMSD': 3.0, 'Rg': 2.0, 'REE': 2.0}
 MaxCluster = 10
 
 # Histogramming
@@ -39,6 +40,17 @@ NBins = 50
 
 # LogFile reading style for getting energies
 LogFileStyle = 'mystyle' # 'simstyle' for using sim.traj.Lammps
+
+# STRIDE secondary structures
+SSTypes_STRIDE = {'H': ['G', 'H', 'I'], 'B': ['E', 'B', 'b']}
+
+# precision correction in config wt. sum
+def get_logsumexp(logw):
+    logw_max = max(logw)
+    return logw_max + np.log(np.sum(np.exp(logw-logw_max)))
+
+def get_wsum(logw):
+    return np.exp(get_logsumexp(logw))
 
 
 
@@ -248,8 +260,30 @@ class ProteinNCOS(object):
             PsiDiff[i] = sim.geom.NearestAngle(Psi[i] - Psi1[i], 0.0)
         Diff = np.sqrt(PhiDiff**2 + PsiDiff**2)
         return PhiDiff, PsiDiff, Diff
-            
-      
+    
+    def StrideSS(self, SSType = 'B'):
+        # convert to AA pdb
+        cgpdb = 'this_cg.pdb'
+        aapdb = 'this_aa.pdb'
+        self.WritePdb(cgpdb)
+        mapNCOS.ReverseMap(CGPdb = cgpdb, Prefix = aapdb.split('.pdb')[0], hasPseudoGLY = False) # can't use pseudo gly with this
+        this_p = protein.ProteinClass(aapdb)
+        this_p.WritePdb(aapdb)
+        # use stride
+        cmd = 'stride ' + aapdb
+        proc = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        out, err = proc.communicate()
+        retcode = proc.returncode
+        score = 0.0
+        if not retcode:
+            s = [i for i in out.split('\n') if 'ASG' in i]
+            for i in s:
+                struct = i.split()[5]
+                if struct in SSTypes_STRIDE[SSType]: score += 1.0
+            score /= float(self.NRes)
+        os.remove(cgpdb)
+        os.remove(aapdb)
+        return score  
          
 # class that defines computes over trajectories at a fixed temperature
 # functions prefixed Quick, calculate globally over the entire backbone
@@ -566,6 +600,16 @@ class Compute(object):
         with open(picklename, 'w') as of: pickle.dump(ret, of)
         return
     
+    def StrideSS(self, SSType):
+        score = np.zeros(self.NFrames)
+        pb = sim.utility.ProgressBar(Text = self.ProgressMonitor('STRIDE %s score' % SSType), Steps = self.NFrames)
+        for i, frame in enumerate(self.FrameRange):
+            Pos = self.Trj[frame]
+            self.p.UpdatePos(Pos)
+            score[i] = self.p.StrideSS(SSType)
+            pb.Update(i)
+        return score
+    
     def SpecificHeat(self):
         Cv_block = (1. / (kB * self.Temp**2.)) * np.ones(NBlocks)
         BlockSize = int(self.NFrames / NBlocks)
@@ -594,7 +638,9 @@ class Replica(object):
         self.MasterOrderParamDict = {'U'        : self.U,
                                      'Rg'       : self.Rg,
                                      'REE'      : self.REE,
-                                     'RMSD'     : self.RMSD}
+                                     'RMSD'     : self.RMSD,
+                                     'HScore'   : self.HScore,
+                                     'BScore'   : self.BScore}
         # native (reference pdb)
         self.NativePdb = NativePdb
         
@@ -700,6 +746,16 @@ class Replica(object):
         # REE calculator
         self.Calc.Update(TrajFn = TrajFn, Temp = Temp)
         return self.Calc.REE_frame()
+    
+    def HScore(self, TrajFn, Temp):
+        # alpha score calculator using STRIDE
+        self.Calc.Update(TrajFn = TrajFn, Temp = Temp)
+        return self.Calc.StrideSS(SSType = 'H')
+    
+    def BScore(self, TrajFn, Temp):
+        # beta score calculator using STRIDE
+        self.Calc.Update(TrajFn = TrajFn, Temp = Temp)
+        return self.Calc.StrideSS(SSType = 'B')
     
     def DetectReorderMode(self):
         # detects if temp. ordered trajectories are present
@@ -843,7 +899,7 @@ class Replica(object):
         beta_k = 1.0 / (kB * self.Temps)
         K = len(self.Temps)
         N = self.NFrames
-        
+
         # extract all energies
         U_kn = np.zeros([K, N], np.float64)
         for k, t in enumerate(self.Temps):
@@ -940,6 +996,58 @@ class Replica(object):
         with open(picklename, 'w') as of: pickle.dump(ret, of)
         d.close()
         return
+   
+   
+    def StrideSS(self):
+        # calculate folding curve w.r.t. chosen order param (usually rmsd)
+        picklename = FMT['STRIDESS'] % (self.Prefix)
+        if os.path.isfile(picklename): return
+        # see if config weights need to be recalculated
+        if self.ReInitWeights: self.GetConfigWeights()
+        # retrieve all data for orderparam
+        d = shelve.open(self.DataShelf)
+        hscore_kn = np.zeros([len(self.Temps), self.NFrames], np.float64)
+        bscore_kn = np.zeros([len(self.Temps), self.NFrames], np.float64)
+        for k, t in enumerate(self.Temps):
+            hkey = self.genShelfKey('HScore', t)
+            bkey = self.genShelfKey('BScore', t)
+            hscore_kn[k, :] = d[hkey]
+            bscore_kn[k, :] = d[bkey]
+        # computing folding fraction block by block
+        BlockSize = int(self.NFrames / NBlocks)
+        hscore_block = np.zeros([len(self.Temps), NBlocks])
+        bscore_block = np.zeros([len(self.Temps), NBlocks])
+        for k, t in enumerate(self.Temps):
+            print '\nTarget Temp = %3.2f K' % t
+            for b in range(NBlocks):
+                if NBlocks > 1: print ' Block: ', b
+                start = b * BlockSize
+                stop = (b+1) * BlockSize if not b == NBlocks - 1 else self.NFrames
+                # get scores
+                x = hscore_kn[:, start:stop].flatten()
+                y = bscore_kn[:, start:stop].flatten()
+                # get config weights
+                logw = d['logw_kn'][ (k,b) ].flatten()
+                this_hscore = np.sum(x * np.exp(logw)) / get_wsum(logw)
+                this_bscore = np.sum(y * np.exp(logw)) / get_wsum(logw)
+                # add to block array
+                hscore_block[k,b] = this_hscore
+                bscore_block[k,b] = this_bscore
+
+        hscore = np.mean(hscore_block, axis = 1)
+        bscore = np.mean(bscore_block, axis = 1)
+        if NBlocks > 1:
+            herr = np.std(hscore_block, axis = 1, ddof = 1)
+            berr = np.std(bscore_block, axis = 1, ddof = 1)
+        else:
+            herr = np.zeros(len(self.Temps))
+            berr = np.zeros(len(self.Temps))
+        # write to pickle
+        ret = (self.Temps, hscore, herr), (self.Temps, bscore, berr)
+        with open(picklename, 'w') as of: pickle.dump(ret, of)
+        d.close()
+        return
+        
         
     
     def PMF(self, O):
