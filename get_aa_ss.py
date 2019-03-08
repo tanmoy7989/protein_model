@@ -7,7 +7,7 @@ import sim, protein, whamlib
 
 NBins = 50
 NBlocks = 4
-UseFrames = 2000
+UseFrames = 200
 
 
 TrajDir = os.path.abspath(sys.argv[1])

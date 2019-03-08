@@ -57,9 +57,9 @@ TimeStep = FFMetadata['TimeStep'] # femto-seconds
     
 # MD iterations
 NStepsMin = 10000                   # 10 ps
-NStepsEquil = 50000000              # 50 ns
-NStepsProd  = 20000000              # 20 ns
-NStepsSwap = 1000                   # 1 ps
+NStepsEquil = 80000000              # 50 ns
+NStepsProd  = 40000000              # 20 ns
+NStepsSwap = 2000                   # 1 ps
 StepFreq = int(NStepsProd / 10000)  # need 10000 frames, 2 ps
     
 # REMD script template
@@ -151,9 +151,7 @@ export PYTHONPATH=$PYTHONPATH:~/protein_model
 date
 python remd.py
 mkdir -p ./NativeAnalysis
-mkdir -p ./AATopClustAnalysis
 python ~/protein_model/analyze_go.py %(NATIVEPDB)s %(PREFIX)s ./ ./NativeAnalysis %(HASPSEUDOGLY)d
-python ~/protein_model/analyze_go.py %(AATOPCLUSTPDB)s %(PREFIX)s ./ ./AATopClustAnalysis %(HASPSEUDOGLY)d
 date
 '''
 # dict for filling md script template

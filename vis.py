@@ -3,13 +3,75 @@ import os, sys, numpy as np
 import matplotlib ; matplotlib.use('Agg')
 import matplotlib.image as mpimg, matplotlib.pyplot as plt
 import sim, protein, cgprotein
-
-sys.path.append('/home/cask0/home/tsanyal/protein_model')
 from reasonable import mapNCOS
 
-PYMOLEXEC = os.environ['PYMOL_PATH']
+Renderer='pymol'
+
 IMAGEMAGICKEXEC = 'convert' # imagemagick tool
 doRotate = True
+
+# Renderers
+# Pymol
+PYMOLEXEC = os.environ['PYMOL_PATH']
+s_pymol = '''
+# set background and display style
+bg_color white
+set antialias, 1
+set orthoscopic, on
+set depth_cue, 0
+set ray_trace_mode, 1
+ray renderer=0
+# load pdbs
+load %(TMPNATIVEPDB)s, native
+load %(TMPPDB)s, predicted
+# color pdbs
+color blue, native
+color red, predicted
+# display only backbone
+select bb, name N+CA+C+O
+hide all
+show cartoon
+#cartoon tube
+# save to file
+zoom complete=1
+png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
+'''
+
+# VMD
+VMDEXEC = 'vmd'
+TACHYONEXEC = 'tachyon_LINUXAMD64'
+s_vmd = '''
+# set background and display style
+color Display Background white
+display projection Orthographic
+axes location Off
+display nearclip set 0.01
+# load pdbs
+mol addrep 0
+mol new {%(TMPNATIVEPDB)s} type {pdb}
+mol addrep 1
+mol new {%(TMPPDB)s} type {pdb}
+# align pdbs
+set ref_sel [atomselect 0 "not name S"]
+set sel [atomselect 1 "not name S"]
+set rotmat [measure fit $sel $ref_sel]
+set move_sel0 [atomselect 0 "all"]
+set move_sel1 [atomselect 1 "all"]
+set com [measure center $move_sel0 weight mass]
+$move_sel1 move $rotmat
+$move_sel0 moveby [vecscale -1.0 $com]
+$move_sel1 moveby [vecscale -1.0 $com]
+# cartoon reps
+mol modstyle 0 0 NewCartoon 0.3 20.0 4.1 0
+mol modcolor 0 0 ColorID 0
+mol modmaterial 0 0 Diffuse
+mol modstyle 0 1 NewCartoon 0.3 20.0 4.1 0
+mol modcolor 0 1 ColorID 1
+mol modmaterial 0 1 Diffuse
+#render
+render Tachyon %(FILEPREFIX)s "%(TACHYONEXEC)s" -aasamples 12 %%s -format TARGA -o %%s.tga
+quit
+'''
 
 def ExtractConect(NativePdb, Pdb):
     # clustered pdbs come with all cluster structs
@@ -65,10 +127,11 @@ def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False, ha
     # read pdbs
     pNative = protein.ProteinClass(NativePdb)
     p = protein.ProteinClass(Pdb, Model = 1)
-    # rotate the native pdb
+    # rotate the native pdb 
     if doRotate: pNative = RotateProteinClass(pNative)
-    # align with rotated native struct
-    p, pNative = AlignProtein(p, pNative, BBInds)
+    # align with rotated native struct (produces weird results with vmd, so let vmd do its own )
+    if not Renderer == 'vmd':
+        p, pNative = AlignProtein(p, pNative, BBInds)
     # write to first set of tmp pdb files
     tmpNativePdb = os.path.join(os.getcwd(), '%s_tmpnative.pdb' % OutPrefix)
     tmpPdb = os.path.join(os.getcwd(), '%s_tmp.pdb' % OutPrefix)
@@ -78,43 +141,35 @@ def Overlay(NativePdb, Pdb, OutPrefix = None, Label = '', SinglePlot = False, ha
     # so that STRIDE can assign secondary structures
     mapNCOS.ReverseMap(CGPdb = tmpNativePdb, Prefix = tmpNativePdb.split('.pdb')[0], hasPseudoGLY = hasPseudoGLY)
     mapNCOS.ReverseMap(CGPdb = tmpPdb, Prefix = tmpPdb.split('.pdb')[0], hasPseudoGLY = hasPseudoGLY)
-    # prepare pymol script
-    s = '''
-# set background and display style
-bg_color white
-set antialias, 1
-set orthoscopic, on
-set depth_cue, 0
-set ray_trace_mode, 1
-ray renderer=0
-# load pdbs
-load %(TMPNATIVEPDB)s, native
-load %(TMPPDB)s, predicted
-# color pdbs
-color blue, native
-color red, predicted
-# display only backbone
-select bb, name N+CA+C+O
-hide all
-show cartoon
-#cartoon tube
-# save to file
-zoom complete=1
-png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
-'''
-    d = {'TMPNATIVEPDB': tmpNativePdb, 'TMPPDB': tmpPdb}
-    d['FILENAME'] = OutPrefix + '.png' if not SinglePlot else OutPrefix + '_tmp0.png'
-    tmpPml = OutPrefix + '.pml'
-    file(OutPrefix + '.pml', 'w').write(s % d)
-    cmdstr1 = '%s -Qc %s' % (PYMOLEXEC, tmpPml)
-    os.system(cmdstr1)
-    for x in [tmpNativePdb, tmpPdb, tmpPml]: os.remove(x)
+    # fill dictionary for renderer script 
+    d = {'TMPNATIVEPDB': tmpNativePdb, 'TMPPDB': tmpPdb, }
+    # pymol
+    if Renderer == 'pymol':    
+        d['FILENAME'] = OutPrefix + '.png' if not SinglePlot else OutPrefix + '_tmp0.png'
+        tmpPml = OutPrefix + '.pml'
+        file(tmpPml, 'w').write(s_pymol % d)
+        cmdstr1 = '%s -Qc %s' % (PYMOLEXEC, tmpPml)
+        os.system(cmdstr1)
+        for x in [tmpNativePdb, tmpPdb, tmpPml]: os.remove(x)
+    # vmd
+    elif Renderer == 'vmd':
+        d['FILEPREFIX'] = OutPrefix if not SinglePlot else OutPrefix + '_tmp0'
+        d['TACHYONEXEC'] = TACHYONEXEC     
+        tmpTcl = OutPrefix + '.tcl'    
+        file(tmpTcl, 'w').write(s_vmd % d)   
+        cmdstr1 = '%s -dispdev text -eofexit -e %s > /dev/null 2>&1' % (VMDEXEC, tmpTcl)
+        os.system(cmdstr1)
+        for x in [tmpNativePdb, tmpPdb, tmpTcl, d['FILEPREFIX']]: os.remove(x)    
+    else:
+        print 'ERROR: Renderer not found'
+        exit()
     # if single plot with supplied labels is requested (mostly when used from the command line)
     if SinglePlot:
         if not Label:
             rmsd = sim.geom.RMSD(pNative.Pos[BBInds], p.Pos[BBInds]) ; print rmsd
             Label = r'$RMSD = %2.2f \AA$' % rmsd
-        pic0 = OutPrefix + '_tmp0.png'
+        if Renderer == 'pymol': pic0 = OutPrefix + '_tmp0.png'
+        else: pic0 = OutPrefix + '_tmp0.tga'
         pic1 = OutPrefix + '_tmp1.png'
         cmdstr2 = '%s %s -trim -bordercolor white -background white -border 50x50 -quality 100 %s' % (IMAGEMAGICKEXEC, pic0, pic1)
         os.system(cmdstr2)
@@ -122,7 +177,7 @@ png %(FILENAME)s, width = 1200, height = 1200, dpi = 300, ray = 1
         fig = plt.figure(figsize = (5,5), facecolor = 'w', edgecolor = 'w')
         ax = fig.add_subplot(1,1,1)
         ax.imshow(pic, aspect = 'auto')
-        ax.set_title(Label, fontsize = 8)
+        #ax.set_title(Label, fontsize = 8)
         ax.set_xticks([]) ; ax.set_yticks([])
         ax.set_xticklabels([]) ; ax.set_yticklabels([])
         figname = OutPrefix + '.png'
@@ -152,11 +207,12 @@ def Panel(NativePdbs, Pdbs, NRows, NCols, Labels = [], OutDir = None, PanelPrefi
             ax.set_title(NativePdb.split('/')[-1].split('.pdb')[0])
             continue
         # align and overlay in pymol
-        OutPrefix0 = os.path.join(OutDir, './this0')
-        OutPrefix1 = os.path.join(OutDir, './this1')
+        OutPrefix0 = os.path.join(OutDir, './', 'this0')
+        OutPrefix1 = os.path.join(OutDir, './', 'this1')
         Overlay(NativePdb, Pdb, OutPrefix =  OutPrefix0, hasPseudoGLY = hasPseudoGLY)
         # crop pic and make it nice using imagemagick
-        pic0 = OutPrefix0 + '.png'
+        if Renderer == 'pymol': pic0 = OutPrefix0 + '.png'
+        else: pic0 = OutPrefix0 + '.tga'
         pic1 = OutPrefix1 + '.png'
         cmdstr = '%s %s -trim -bordercolor white -background white -border 50x50 -quality 100 %s' % (IMAGEMAGICKEXEC, pic0, pic1)
         os.system(cmdstr)

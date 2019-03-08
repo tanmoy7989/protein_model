@@ -337,6 +337,8 @@ if __name__ == '__main__':
     PlotPanel(NativeDir = AATopClustDir, DataDir = 'AATopClustAnalysis', Prefix = 'vispanel_topclust', 
               hasPseudoGLY = hasPseudoGLY, DelOverlayPng = True)
     
+    exit()
+    
     PlotRamaProb(DataDir = 'NativeAnalysis', Prefix = 'ramaprob_native')
     PlotRamaProb(DataDir = 'AATopClustAnalysis', Prefix = 'ramaprob_topclust')
         

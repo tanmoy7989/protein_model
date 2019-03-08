@@ -22,8 +22,9 @@ FMT = {
        'RESCONTACTS'    : '%s.%3.2f.rescontacts.pickle',
        'CLUSTPDB'       : '%s.%3.2f.clust.pdb',
        'CLUSTSUM'       : '%s.%3.2f.clustsum.txt',
-       'DATASHELF'   :    '%s.ordparam.shelf',
+       'DATASHELF'      : '%s.ordparam.shelf',
        'FOLDCURVE'      : '%s_%s.foldcurve.pickle',
+       'STRIDESS'       : '%s.STRIDE.pickle',
        'PMF1D'          : '%s.%3.2f.%s.pickle',
        'PMF2D'          : '%s.%3.2f.%s_%s.pickle'
       }

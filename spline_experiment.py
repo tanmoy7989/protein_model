@@ -8,7 +8,7 @@ import reasonable as cg
 
 CURRDIR = os.getcwd()
 RoomTemp = 300.
-calcFoldTemp = False
+calcFoldTemp = True
 
 PdbName = sys.argv[1]
 FFType = sys.argv[2]
